@@ -45,6 +45,16 @@ export const translations = {
 
         "reports.title": "Financial Reports",
         "reports.revenueOverview": "Revenue Overview (Year To Date)",
+
+        "settings.title": "Settings",
+        "settings.orgSettings": "Organization Settings",
+        "settings.orgName": "Organization Name",
+        "settings.orgNameDesc": "This is your public display name.",
+        "settings.whatsapp": "WhatsApp Instance ID",
+        "settings.whatsappDesc": "ID from Evolution API for AI integration.",
+        "settings.save": "Save Changes",
+        "settings.saving": "Saving...",
+        "settings.success": "Settings updated successfully!",
     },
     pt: {
         "landing.title": "Gerencie sua Barbearia com IA",
@@ -92,5 +102,15 @@ export const translations = {
 
         "reports.title": "Relatórios Financeiros",
         "reports.revenueOverview": "Visão Geral de Receita (Ano Atual)",
+
+        "settings.title": "Configurações",
+        "settings.orgSettings": "Configurações da Organização",
+        "settings.orgName": "Nome da Organização",
+        "settings.orgNameDesc": "Este é o seu nome público de exibição.",
+        "settings.whatsapp": "ID da Instância WhatsApp",
+        "settings.whatsappDesc": "ID da Evolution API para integração com IA.",
+        "settings.save": "Salvar Alterações",
+        "settings.saving": "Salvando...",
+        "settings.success": "Configurações atualizadas com sucesso!",
     }
 }
