@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useLanguage } from "@/contexts/language-context"
 import { Copy, QrCode, RefreshCcw, Wifi, WifiOff } from "lucide-react"
 import { useState } from "react"
+import { createEvolutionInstance } from "@/app/actions/whatsapp"
 
 interface WhatsAppConnectionProps {
     organization: {
@@ -22,15 +23,10 @@ export function WhatsAppConnection({ organization }: WhatsAppConnectionProps) {
     */
     const [status, setStatus] = useState<'connected' | 'disconnected'>('disconnected')
     const [loading, setLoading] = useState(false)
+    const [qrCode, setQrCode] = useState<string | null>(null)
 
     const instanceId = organization.whatsapp_instance_id || "user_" + organization.id.split('-')[0]
     const webhookUrl = `https://barber-saas-api.vercel.app/api/webhook/${organization.id}`
-
-    import { createEvolutionInstance } from "@/app/actions/whatsapp"
-
-    // ... inside component
-
-    const [qrCode, setQrCode] = useState<string | null>(null)
 
     async function handleConnect() {
         setLoading(true)
@@ -60,9 +56,6 @@ export function WhatsAppConnection({ organization }: WhatsAppConnectionProps) {
             setLoading(false)
         }
     }
-
-    // Update render to show QR Code
-
 
     function handleRefresh() {
         setLoading(true)
