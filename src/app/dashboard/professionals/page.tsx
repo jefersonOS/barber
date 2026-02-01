@@ -1,0 +1,42 @@
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { createClient } from "@/lib/supabase/server"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+
+export default async function ProfessionalsPage() {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return null
+
+    const { data: profile } = await supabase.from('profiles').select('organization_id').eq('id', user.id).single()
+    if (!profile?.organization_id) return <div>No organization found.</div>
+
+    const { data: professionals } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('organization_id', profile.organization_id)
+
+    return (
+        <div className="space-y-6">
+            <h1 className="text-3xl font-bold tracking-tight">Professionals</h1>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {professionals?.map((pro) => (
+                    <Card key={pro.id}>
+                        <CardHeader className="flex flex-row items-center gap-4">
+                            <Avatar>
+                                <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${pro.full_name}`} />
+                                <AvatarFallback>{pro.full_name?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                                <CardTitle className="text-base">{pro.full_name}</CardTitle>
+                                <p className="text-xs text-muted-foreground capitalize">{pro.role}</p>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-sm text-muted-foreground">{pro.phone}</p>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+        </div>
+    )
+}
