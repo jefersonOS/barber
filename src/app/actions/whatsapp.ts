@@ -14,8 +14,9 @@ export async function createEvolutionInstance(organizationId: string) {
     const instanceName = `user_${organizationId.replace(/-/g, '')}`
     const supabase = await createClient()
 
-    // Sanitize URL
-    const baseUrl = EVOLUTION_API_URL.replace(/\/$/, '')
+    // Sanitize URL: Remove trailing slash and '/manager' if present
+    // Users often copy the UI URL which ends in /manager
+    const baseUrl = EVOLUTION_API_URL.replace(/\/manager\/?$/, '').replace(/\/$/, '')
 
     // 1. Create Instance
     try {
