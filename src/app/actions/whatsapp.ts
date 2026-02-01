@@ -14,9 +14,14 @@ export async function createEvolutionInstance(organizationId: string) {
     const instanceName = `user_${organizationId.replace(/-/g, '')}`
     const supabase = await createClient()
 
+    // Sanitize URL
+    const baseUrl = EVOLUTION_API_URL.replace(/\/$/, '')
+
     // 1. Create Instance
     try {
-        const createRes = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
+        console.log(`Attempting to create instance at: ${baseUrl}/instance/create`)
+
+        const createRes = await fetch(`${baseUrl}/instance/create`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -31,8 +36,8 @@ export async function createEvolutionInstance(organizationId: string) {
 
         if (!createRes.ok) {
             const errorText = await createRes.text()
-            console.error("Evolution Create Error:", errorText)
-            return { error: `Failed to create instance: ${createRes.statusText}` }
+            console.error("Evolution Create Error:", createRes.status, createRes.statusText, errorText)
+            return { error: `Failed to create instance (${createRes.status}): ${errorText || createRes.statusText}` }
         }
 
         const createData = await createRes.json()
@@ -44,7 +49,9 @@ export async function createEvolutionInstance(organizationId: string) {
         const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https'
         const webhookUrl = `${protocol}://${host}/api/webhook/whatsapp`
 
-        const webhookRes = await fetch(`${EVOLUTION_API_URL}/webhook/set/${instanceName}`, {
+        console.log(`Configuring webhook at: ${baseUrl}/webhook/set/${instanceName}`)
+
+        const webhookRes = await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
