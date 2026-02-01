@@ -125,7 +125,7 @@ export default function NewServicePage() {
                                         <FormItem>
                                             <FormLabel>Duration (minutes)</FormLabel>
                                             <FormControl>
-                                                <Input type="number" {...field} />
+                                                <Input type="number" {...field} value={field.value as string | number} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -138,7 +138,7 @@ export default function NewServicePage() {
                                         <FormItem>
                                             <FormLabel>Price ($)</FormLabel>
                                             <FormControl>
-                                                <Input type="number" step="0.01" {...field} />
+                                                <Input type="number" step="0.01" {...field} value={field.value as string | number} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
