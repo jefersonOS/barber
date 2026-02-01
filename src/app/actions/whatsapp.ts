@@ -143,8 +143,54 @@ export async function createEvolutionInstance(organizationId: string) {
             qrCode: typeof qrCode === 'string' ? { base64: qrCode } : qrCode // Normalize return
         }
 
+        // ...existing code...
     } catch (error) {
         console.error("Evolution Integration Error:", error)
         return { error: "Internal Server Error during Evolution setup." }
+    }
+}
+
+export async function getEvolutionConnectionStatus(instanceId: string) {
+    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
+        return { error: "Evolution API configuration missing." }
+    }
+
+    const baseUrl = EVOLUTION_API_URL.replace(/\/manager\/?$/, '').replace(/\/$/, '')
+
+    try {
+        const response = await fetch(`${baseUrl}/instance/connectionState/${instanceId}`, {
+            method: 'GET',
+            headers: {
+                'apikey': EVOLUTION_API_KEY
+            },
+            cache: 'no-store'
+        })
+
+        if (!response.ok) {
+            // Se der 404, provavelmente a instância não existe ou está desconectada/fechada
+            if (response.status === 404) {
+                return { status: 'disconnected', state: 'notFound' }
+            }
+            console.error("Error fetching connection state:", await response.text())
+            // Retorna disconnected por segurança
+            return { status: 'disconnected', state: 'error' }
+        }
+
+        const data = await response.json()
+        // Evolution retorna algo como { instance: {...}, state: 'open' | 'close' | 'connecting' }
+        // Ou diretamente { state: 'open' } dependendo da versão v2.
+
+        // Verifica o formato. Normalmente data.instance.state ou data.state
+        const state = data?.instance?.state || data?.state || 'close'
+
+        if (state === 'open') {
+            return { status: 'connected', state: 'open' }
+        } else {
+            return { status: 'disconnected', state: state }
+        }
+
+    } catch (error) {
+        console.error("Evolution Status Check Error:", error)
+        return { status: 'disconnected', error: "Failed to check status" }
     }
 }

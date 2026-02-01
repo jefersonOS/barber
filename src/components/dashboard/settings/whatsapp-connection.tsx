@@ -5,7 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useLanguage } from "@/contexts/language-context"
 import { Copy, QrCode, RefreshCcw, Wifi, WifiOff } from "lucide-react"
 import { useState } from "react"
-import { createEvolutionInstance } from "@/app/actions/whatsapp"
+import { createEvolutionInstance, getEvolutionConnectionStatus } from "@/app/actions/whatsapp"
+import { useEffect } from "react"
+
+// ... imports
 
 interface WhatsAppConnectionProps {
     organization: {
@@ -17,16 +20,33 @@ interface WhatsAppConnectionProps {
 
 export function WhatsAppConnection({ organization }: WhatsAppConnectionProps) {
     const { t } = useLanguage()
-    /* 
-       Mock status for now. In a real scenario, we would retrieve this from 
-       the backend which queries Evolution API. 
-    */
+
     const [status, setStatus] = useState<'connected' | 'disconnected'>('disconnected')
     const [loading, setLoading] = useState(false)
     const [qrCode, setQrCode] = useState<string | null>(null)
 
     const instanceId = organization.whatsapp_instance_id || "user_" + organization.id.split('-')[0]
     const webhookUrl = `https://barber-saas-api.vercel.app/api/webhook/${organization.id}`
+
+    // Fetch initial status
+    useEffect(() => {
+        checkStatus()
+    }, [instanceId])
+
+    async function checkStatus() {
+        if (!instanceId) return
+        setLoading(true)
+        try {
+            const result = await getEvolutionConnectionStatus(instanceId)
+            if (result && result.status) {
+                setStatus(result.status as 'connected' | 'disconnected')
+            }
+        } catch (error) {
+            console.error("Failed to check status", error)
+        } finally {
+            setLoading(false)
+        }
+    }
 
     async function handleConnect() {
         setLoading(true)
@@ -40,14 +60,13 @@ export function WhatsAppConnection({ organization }: WhatsAppConnectionProps) {
             }
 
             if (result.qrCode && result.qrCode.base64) {
-                // Common evolution response structure check might be needed
                 setQrCode(result.qrCode.base64)
             } else if (typeof result.qrCode === 'string') {
                 setQrCode(result.qrCode)
             }
 
-            // Reload page to update organization state? or just wait for QR scan?
-            // For now, let's keep the user on the page to scan.
+            // Start polling for status change? For now, just refresh
+            checkStatus()
 
         } catch (e) {
             console.error(e)
@@ -58,12 +77,7 @@ export function WhatsAppConnection({ organization }: WhatsAppConnectionProps) {
     }
 
     function handleRefresh() {
-        setLoading(true)
-        setTimeout(() => {
-            setLoading(false)
-            // Mock random status toggle
-            setStatus(prev => prev === 'connected' ? 'disconnected' : 'connected')
-        }, 800)
+        checkStatus()
     }
 
     return (
