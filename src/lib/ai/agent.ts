@@ -54,7 +54,7 @@ export async function processAIResponse(organizationId: string, userPhone: strin
     // 4. OpenAI Tools Definition
     const tools = [
         {
-            type: "function",
+            type: "function" as const,
             function: {
                 name: "list_services",
                 description: "List all available services and their prices and durations.",
@@ -62,7 +62,7 @@ export async function processAIResponse(organizationId: string, userPhone: strin
             }
         },
         {
-            type: "function",
+            type: "function" as const,
             function: {
                 name: "check_availability",
                 description: "Check available appointment slots for a specific date.",
@@ -76,7 +76,7 @@ export async function processAIResponse(organizationId: string, userPhone: strin
             }
         },
         {
-            type: "function",
+            type: "function" as const,
             function: {
                 name: "book_appointment",
                 description: "Book a new appointment.",
