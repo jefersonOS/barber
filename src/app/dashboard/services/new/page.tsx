@@ -32,7 +32,7 @@ export default function NewServicePage() {
     const router = useRouter()
     const [loading, setLoading] = useState(false)
 
-    const form = useForm<z.infer<typeof formSchema>>({
+    const form = useForm({
         resolver: zodResolver(formSchema),
         defaultValues: {
             name: "",
