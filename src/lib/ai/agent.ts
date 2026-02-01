@@ -92,7 +92,7 @@ export async function processAIResponse(organizationId: string, userPhone: strin
                 }
             }
         }
-    ] as const
+    ]
 
     // 5. OpenAI Call Loop (to handle tool outputs)
     let finalResponse = ""
