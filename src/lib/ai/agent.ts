@@ -114,6 +114,7 @@ export async function processAIResponse(organizationId: string, userPhone: strin
             messages.push(message) // Add the assistant's tool call request to history
 
             for (const toolCall of message.tool_calls) {
+                if (toolCall.type !== 'function') continue
                 const fnName = toolCall.function.name
                 const args = JSON.parse(toolCall.function.arguments)
                 let toolResult = ""
