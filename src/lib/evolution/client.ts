@@ -25,7 +25,14 @@ export class EvolutionClient {
                 },
                 body: JSON.stringify({
                     number: number,
-                    text: text
+                    options: {
+                        delay: 1000,
+                        presence: "composing",
+                        linkPreview: false
+                    },
+                    textMessage: {
+                        text: text
+                    }
                 })
             })
 
