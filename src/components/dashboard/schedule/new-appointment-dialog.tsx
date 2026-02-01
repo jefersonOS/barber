@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { createClient } from "@/lib/supabase/client"
+import { useLanguage } from "@/contexts/language-context"
 
 const formSchema = z.object({
     clientName: z.string().min(2, "Client name is required"),
@@ -47,13 +48,71 @@ interface NewAppointmentDialogProps {
     onSuccess: () => void
 }
 
-import { useLanguage } from "@/contexts/language-context"
-
-// ...
-
 export function NewAppointmentDialog({ open, onOpenChange, organizationId, onSuccess }: NewAppointmentDialogProps) {
     const { t } = useLanguage()
-    // ... hooks
+    const [loading, setLoading] = useState(false)
+    const [services, setServices] = useState<any[]>([])
+    const [professionals, setProfessionals] = useState<any[]>([])
+    const supabase = createClient()
+
+    useEffect(() => {
+        if (open) {
+            loadData()
+        }
+    }, [open])
+
+    async function loadData() {
+        const { data: servicesData } = await supabase.from('services').select('*').eq('organization_id', organizationId)
+        const { data: profilesData } = await supabase.from('profiles').select('*').eq('organization_id', organizationId)
+
+        if (servicesData) setServices(servicesData)
+        if (profilesData) setProfessionals(profilesData)
+    }
+
+    const form = useForm<z.infer<typeof formSchema>>({
+        resolver: zodResolver(formSchema),
+        defaultValues: {
+            clientName: "",
+            clientPhone: "",
+            serviceId: "",
+            professionalId: "",
+            date: new Date().toISOString().split('T')[0],
+            time: "10:00",
+        },
+    })
+
+    async function onSubmit(values: z.infer<typeof formSchema>) {
+        setLoading(true)
+        try {
+            const startDateTime = new Date(`${values.date}T${values.time}`)
+
+            const service = services.find(s => s.id === values.serviceId)
+            const duration = service ? service.duration_min : 30
+            const endDateTime = new Date(startDateTime.getTime() + duration * 60000)
+
+            const { error } = await supabase.from('appointments').insert({
+                organization_id: organizationId,
+                client_name: values.clientName,
+                client_phone: values.clientPhone,
+                service_id: values.serviceId,
+                professional_id: values.professionalId || null,
+                start_time: startDateTime.toISOString(),
+                end_time: endDateTime.toISOString(),
+                status: 'confirmed',
+            })
+
+            if (error) throw error
+
+            onSuccess()
+            onOpenChange(false)
+            form.reset()
+        } catch (error) {
+            console.error(error)
+            alert(t("common.error"))
+        } finally {
+            setLoading(false)
+        }
+    }
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
