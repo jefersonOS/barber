@@ -21,7 +21,30 @@ import { useLanguage } from "@/contexts/language-context"
 export default function ReportsPage() {
     const { t } = useLanguage()
     const data = [
-        // ... data
+        {
+            name: "Jan",
+            total: Math.floor(Math.random() * 5000) + 1000,
+        },
+        {
+            name: "Feb",
+            total: Math.floor(Math.random() * 5000) + 1000,
+        },
+        {
+            name: "Mar",
+            total: Math.floor(Math.random() * 5000) + 1000,
+        },
+        {
+            name: "Apr",
+            total: Math.floor(Math.random() * 5000) + 1000,
+        },
+        {
+            name: "May",
+            total: Math.floor(Math.random() * 5000) + 1000,
+        },
+        {
+            name: "Jun",
+            total: Math.floor(Math.random() * 5000) + 1000,
+        },
     ]
 
     return (
