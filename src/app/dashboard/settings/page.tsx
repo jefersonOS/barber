@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { createClient } from "@/lib/supabase/client" // Note: Changed to client to use local hook, but usually we fetch server side first
 import { SettingsForm } from "@/components/dashboard/settings/settings-form"
+import { WhatsAppConnection } from "@/components/dashboard/settings/whatsapp-connection"
 import { useLanguage } from "@/contexts/language-context"
 import { useEffect, useState } from "react"
 
@@ -42,7 +43,13 @@ export default function SettingsPage() {
                     <CardTitle>{t("settings.orgSettings")}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    {organization && <SettingsForm organization={organization} />}
+                    {organization && (
+                        <div className="space-y-8">
+                            <WhatsAppConnection organization={organization} />
+                            <div className="h-px bg-border" />
+                            <SettingsForm organization={organization} />
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </div>

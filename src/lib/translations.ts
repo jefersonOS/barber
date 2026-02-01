@@ -55,6 +55,18 @@ export const translations = {
         "settings.save": "Save Changes",
         "settings.saving": "Saving...",
         "settings.success": "Settings updated successfully!",
+
+        "whatsapp.title": "WhatsApp Connection",
+        "whatsapp.description": "Manage your Evolution API instance connection.",
+        "whatsapp.status.connected": "Connected",
+        "whatsapp.status.disconnected": "Disconnected",
+        "whatsapp.instance": "Instance",
+        "whatsapp.webhook": "Webhook (Automatic)",
+        "whatsapp.btn.configure": "Force Webhook Configuration",
+        "whatsapp.btn.refresh": "Refresh",
+        "whatsapp.btn.connect": "Connect WhatsApp",
+        "whatsapp.btn.disconnect": "Disconnect",
+        "whatsapp.copy": "Copy",
     },
     pt: {
         "landing.title": "Gerencie sua Barbearia com IA",
@@ -112,5 +124,17 @@ export const translations = {
         "settings.save": "Salvar Alterações",
         "settings.saving": "Salvando...",
         "settings.success": "Configurações atualizadas com sucesso!",
+
+        "whatsapp.title": "Conexão WhatsApp",
+        "whatsapp.description": "Gerencie a conexão da sua instância Evolution API.",
+        "whatsapp.status.connected": "Conectado",
+        "whatsapp.status.disconnected": "Desconectado",
+        "whatsapp.instance": "Instância",
+        "whatsapp.webhook": "Webhook (Automático)",
+        "whatsapp.btn.configure": "Forçar Configuração do Webhook",
+        "whatsapp.btn.refresh": "Atualizar",
+        "whatsapp.btn.connect": "Conectar WhatsApp",
+        "whatsapp.btn.disconnect": "Desconectar",
+        "whatsapp.copy": "Copiar",
     }
 }
