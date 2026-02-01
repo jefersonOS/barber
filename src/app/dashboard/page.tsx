@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
+import { getFinancialMetrics } from "@/lib/metrics"
 
 export default async function DashboardPage() {
     const supabase = await createClient()
@@ -18,6 +19,8 @@ export default async function DashboardPage() {
     if (!profile) {
         redirect("/onboarding")
     }
+
+    const { totalRevenue, currentMonthRevenue, percentageChange, monthAppointments } = await getFinancialMetrics(profile.organization_id)
 
     return (
         <div className="space-y-6">
@@ -46,9 +49,34 @@ export default async function DashboardPage() {
                         </svg>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">$0.00</div>
+                        <div className="text-2xl font-bold text-green-600">${totalRevenue.toFixed(2)}</div>
                         <p className="text-xs text-muted-foreground">
-                            +0% from last month
+                            Lifetime
+                        </p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">
+                            Monthly Revenue
+                        </CardTitle>
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            className="h-4 w-4 text-muted-foreground"
+                        >
+                            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                        </svg>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">${currentMonthRevenue.toFixed(2)}</div>
+                        <p className="text-xs text-muted-foreground">
+                            {Number(percentageChange) >= 0 ? '+' : ''}{percentageChange}% from last month
                         </p>
                     </CardContent>
                 </Card>
@@ -73,9 +101,9 @@ export default async function DashboardPage() {
                         </svg>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">+0</div>
+                        <div className="text-2xl font-bold">{monthAppointments}</div>
                         <p className="text-xs text-muted-foreground">
-                            +0% from last month
+                            This month
                         </p>
                     </CardContent>
                 </Card>

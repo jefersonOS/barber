@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { LayoutDashboard, Calendar, Scissors, Users, Settings, LogOut } from "lucide-react"
+import { LayoutDashboard, Calendar, Scissors, Users, Settings, LogOut, BarChart } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 
@@ -13,6 +13,7 @@ const sidebarItems = [
     { icon: Calendar, label: "Schedule", href: "/dashboard/schedule" },
     { icon: Scissors, label: "Services", href: "/dashboard/services" },
     { icon: Users, label: "Professionals", href: "/dashboard/professionals" },
+    { icon: BarChart, label: "Reports", href: "/dashboard/reports" },
     { icon: Settings, label: "Settings", href: "/dashboard/settings" },
 ]
 
