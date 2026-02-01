@@ -14,15 +14,19 @@ export async function POST(request: Request) {
 
         if (event === 'messages.upsert') {
             const messageData = data
-            const remoteJid = messageData.key.remoteJid
-            if (!remoteJid || remoteJid.includes('status')) { // Ignore status updates
-                return NextResponse.json({ status: 'ignored' })
-            }
+            const key = messageData.key || {}
 
+            // 1. Security & Relevance Filters
+            if (key.fromMe) return NextResponse.json({ status: 'ignored_from_me' })
+            if (key.remoteJid && key.remoteJid.includes('@g.us')) return NextResponse.json({ status: 'ignored_group' })
+            if (key.remoteJid && key.remoteJid.includes('status')) return NextResponse.json({ status: 'ignored_status' })
+
+            const remoteJid = key.remoteJid
             const content = messageData.message?.conversation || messageData.message?.extendedTextMessage?.text
-            const instanceId = body.instance; // Or however Evolution sends it
+            const instanceId = body.instance || body.sender; // Check both just in case
 
             if (!content) return NextResponse.json({ status: 'no-content' })
+            if (!remoteJid) return NextResponse.json({ status: 'no-sender' })
 
             const supabase = await createClient()
 

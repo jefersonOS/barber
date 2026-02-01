@@ -22,6 +22,9 @@ export async function createEvolutionInstance(organizationId: string) {
     try {
         console.log(`Attempting to create instance at: ${baseUrl}/instance/create`)
 
+        let qrCode = null;
+        let createSuccess = false;
+
         const createRes = await fetch(`${baseUrl}/instance/create`, {
             method: 'POST',
             headers: {
@@ -30,38 +33,74 @@ export async function createEvolutionInstance(organizationId: string) {
             },
             body: JSON.stringify({
                 instanceName: instanceName,
-                token: crypto.randomUUID(), // specific token for this instance
+                token: crypto.randomUUID(),
                 qrcode: true,
+                integration: "WHATSAPP-BAILEYS" // Explicit integration type
             })
         })
 
         if (!createRes.ok) {
+            // Check for Duplicate Instance error (403 usually for duplicates in some versions, or 400)
+            // Error text usually contains "already exists" or similar
             const errorText = await createRes.text()
-            console.error("Evolution Create Error:", createRes.status, createRes.statusText, errorText)
-            return { error: `Failed to create instance (${createRes.status}): ${errorText || createRes.statusText}` }
+            if (createRes.status === 403 || errorText.includes("already exists") || errorText.includes("Duplicate")) {
+                console.log("Instance already exists. Proceeding to connect...")
+                createSuccess = true;
+            } else {
+                console.error("Evolution Create Error:", createRes.status, createRes.statusText, errorText)
+                return { error: `Failed to create instance (${createRes.status}): ${errorText || createRes.statusText}` }
+            }
+        } else {
+            const createData = await createRes.json()
+            qrCode = createData.qrcode
+            createSuccess = true;
         }
 
-        const createData = await createRes.json()
+        // 1.5 Fetch QR Code if not present (or if instance existed)
+        // We only fetch if we don't have it yet, to ensure we get a fresh one or the current one.
+        if (!qrCode) {
+            console.log("Fetching QR Code via /instance/connect...")
+            const connectRes = await fetch(`${baseUrl}/instance/connect/${instanceName}`, {
+                method: 'GET',
+                headers: {
+                    'apikey': EVOLUTION_API_KEY
+                }
+            })
 
-        // 2. Configure Webhook
-        // Note: The URL is constructed based on the current app deployment
-        // In production, this should be a fixed env var or derived from headers
+            if (connectRes.ok) {
+                const connectData = await connectRes.json()
+                qrCode = connectData.base64 || connectData.qrcode
+            } else {
+                console.warn("Failed to fetch QR Code via connect endpoint.", await connectRes.text())
+            }
+        }
+
+        // 2. Configure Webhook (Double Shot)
         const host = (await headers()).get('host')
         const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https'
         const webhookUrl = `${protocol}://${host}/api/webhook/whatsapp`
 
         console.log(`Configuring webhook at: ${baseUrl}/webhook/set/${instanceName}`)
 
-        const webhookRes = await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'apikey': EVOLUTION_API_KEY
-            },
-            body: JSON.stringify({
-                webhookUrl: webhookUrl,
-                webhookByEvents: false, // If false, sends all? Or need to specify?
-                webhookBase64: true, // Requested by user
+        const webhookPayload = {
+            enabled: true,
+            url: webhookUrl,
+            webhookByEvents: false,
+            webhookBase64: true,
+            events: [
+                "MESSAGES_UPSERT",
+                "MESSAGES_UPDATE",
+                "MESSAGE_ACK",
+                "WHATSAPP_CONNECTION_OPEN",
+                "WHATSAPP_CONNECTION_CLOSE",
+                "WHATSAPP_QR_CODE"
+            ],
+            // Nested webhook for compatibility ("Double Shot")
+            webhook: {
+                enabled: true,
+                url: webhookUrl,
+                webhookByEvents: false,
+                webhookBase64: true,
                 events: [
                     "MESSAGES_UPSERT",
                     "MESSAGES_UPDATE",
@@ -69,14 +108,22 @@ export async function createEvolutionInstance(organizationId: string) {
                     "WHATSAPP_CONNECTION_OPEN",
                     "WHATSAPP_CONNECTION_CLOSE",
                     "WHATSAPP_QR_CODE"
-                ],
-                enabled: true
-            })
+                ]
+            }
+        }
+
+        const webhookRes = await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': EVOLUTION_API_KEY
+            },
+            body: JSON.stringify(webhookPayload)
         })
 
         if (!webhookRes.ok) {
-            // Log but don't fail completely if webhook fails, maybe?
             console.error("Evolution Webhook Error:", await webhookRes.text())
+            // Proceed anyway as instance might be working
         }
 
         // 3. Save to DB
@@ -93,7 +140,7 @@ export async function createEvolutionInstance(organizationId: string) {
         return {
             success: true,
             instanceName,
-            qrCode: createData.qrcode // Evolution v1 returns base64 qr in .qrcode or .base64 depending on version
+            qrCode: typeof qrCode === 'string' ? { base64: qrCode } : qrCode // Normalize return
         }
 
     } catch (error) {
