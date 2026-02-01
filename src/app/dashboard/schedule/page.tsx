@@ -11,9 +11,7 @@ export default async function SchedulePage() {
     // Pass organization ID to client component to fetch data
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h1 className="text-3xl font-bold tracking-tight">Schedule</h1>
-            </div>
+            {/* Title moved to ScheduleView for client-side translation */}
             <ScheduleView organizationId={profile?.organization_id} />
         </div>
     )

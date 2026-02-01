@@ -1,25 +1,43 @@
+"use client"
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { createClient } from "@/lib/supabase/server"
+import { createClient } from "@/lib/supabase/client"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useEffect, useState } from "react"
+import { useLanguage } from "@/contexts/language-context"
 
-export default async function ProfessionalsPage() {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return null
+export default function ProfessionalsPage() {
+    const [professionals, setProfessionals] = useState<any[]>([])
+    const [loading, setLoading] = useState(true)
+    const { t } = useLanguage()
+    const supabase = createClient()
 
-    const { data: profile } = await supabase.from('profiles').select('organization_id').eq('id', user.id).single()
-    if (!profile?.organization_id) return <div>No organization found.</div>
+    useEffect(() => {
+        async function fetchProfessionals() {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) return
 
-    const { data: professionals } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('organization_id', profile.organization_id)
+            const { data: profile } = await supabase.from('profiles').select('organization_id').eq('id', user.id).single()
+            if (!profile?.organization_id) return
+
+            const { data } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('organization_id', profile.organization_id)
+
+            setProfessionals(data || [])
+            setLoading(false)
+        }
+        fetchProfessionals()
+    }, [])
+
+    if (loading) return <div>{t("common.loading")}</div>
 
     return (
         <div className="space-y-6">
-            <h1 className="text-3xl font-bold tracking-tight">Professionals</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{t("professionals.title")}</h1>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {professionals?.map((pro) => (
+                {professionals.map((pro) => (
                     <Card key={pro.id}>
                         <CardHeader className="flex flex-row items-center gap-4">
                             <Avatar>
@@ -36,6 +54,11 @@ export default async function ProfessionalsPage() {
                         </CardContent>
                     </Card>
                 ))}
+                {professionals.length === 0 && (
+                    <div className="col-span-full text-center text-muted-foreground py-10">
+                        {t("professionals.empty")}
+                    </div>
+                )}
             </div>
         </div>
     )

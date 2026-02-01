@@ -14,42 +14,24 @@ interface ReportsPageProps {
 // using client component for charts like below.
 // For now, mocking structure.
 
+import { useLanguage } from "@/contexts/language-context"
+
+// ... imports
+
 export default function ReportsPage() {
+    const { t } = useLanguage()
     const data = [
-        {
-            name: "Jan",
-            total: Math.floor(Math.random() * 5000) + 1000,
-        },
-        {
-            name: "Feb",
-            total: Math.floor(Math.random() * 5000) + 1000,
-        },
-        {
-            name: "Mar",
-            total: Math.floor(Math.random() * 5000) + 1000,
-        },
-        {
-            name: "Apr",
-            total: Math.floor(Math.random() * 5000) + 1000,
-        },
-        {
-            name: "May",
-            total: Math.floor(Math.random() * 5000) + 1000,
-        },
-        {
-            name: "Jun",
-            total: Math.floor(Math.random() * 5000) + 1000,
-        },
+        // ... data
     ]
 
     return (
         <div className="space-y-6">
-            <h1 className="text-3xl font-bold tracking-tight">Financial Reports</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{t("reports.title")}</h1>
 
             <div className="grid gap-4 md:grid-cols-2">
                 <Card className="col-span-2">
                     <CardHeader>
-                        <CardTitle>Revenue Overview (Year To Date)</CardTitle>
+                        <CardTitle>{t("reports.revenueOverview")}</CardTitle>
                     </CardHeader>
                     <CardContent className="pl-2">
                         <ResponsiveContainer width="100%" height={350}>

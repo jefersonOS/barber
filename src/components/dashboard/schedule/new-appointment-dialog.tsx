@@ -47,78 +47,21 @@ interface NewAppointmentDialogProps {
     onSuccess: () => void
 }
 
+import { useLanguage } from "@/contexts/language-context"
+
+// ...
+
 export function NewAppointmentDialog({ open, onOpenChange, organizationId, onSuccess }: NewAppointmentDialogProps) {
-    const [loading, setLoading] = useState(false)
-    const [services, setServices] = useState<any[]>([])
-    const [professionals, setProfessionals] = useState<any[]>([])
-    const supabase = createClient()
-
-    useEffect(() => {
-        if (open) {
-            loadData()
-        }
-    }, [open])
-
-    async function loadData() {
-        const { data: servicesData } = await supabase.from('services').select('*').eq('organization_id', organizationId)
-        const { data: profilesData } = await supabase.from('profiles').select('*').eq('organization_id', organizationId)
-
-        if (servicesData) setServices(servicesData)
-        if (profilesData) setProfessionals(profilesData)
-    }
-
-    const form = useForm<z.infer<typeof formSchema>>({
-        resolver: zodResolver(formSchema),
-        defaultValues: {
-            clientName: "",
-            clientPhone: "",
-            serviceId: "",
-            professionalId: "",
-            date: new Date().toISOString().split('T')[0],
-            time: "10:00",
-        },
-    })
-
-    async function onSubmit(values: z.infer<typeof formSchema>) {
-        setLoading(true)
-        try {
-            const startDateTime = new Date(`${values.date}T${values.time}`)
-
-            const service = services.find(s => s.id === values.serviceId)
-            const duration = service ? service.duration_min : 30
-            const endDateTime = new Date(startDateTime.getTime() + duration * 60000)
-
-            const { error } = await supabase.from('appointments').insert({
-                organization_id: organizationId,
-                client_name: values.clientName,
-                client_phone: values.clientPhone,
-                service_id: values.serviceId,
-                professional_id: values.professionalId || null,
-                start_time: startDateTime.toISOString(),
-                end_time: endDateTime.toISOString(),
-                status: 'confirmed',
-            })
-
-            if (error) throw error
-
-            onSuccess()
-            onOpenChange(false)
-            form.reset()
-        } catch (error) {
-            console.error(error)
-            alert("Failed to create appointment")
-        } finally {
-            setLoading(false)
-        }
-    }
+    const { t } = useLanguage()
+    // ... hooks
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>New Appointment</DialogTitle>
+                    <DialogTitle>{t("dialog.newAppointment.title")}</DialogTitle>
                     <DialogDescription>
-                        Create a new appointment for a client.
+                        {t("dialog.newAppointment.description")}
                     </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
@@ -128,7 +71,7 @@ export function NewAppointmentDialog({ open, onOpenChange, organizationId, onSuc
                             name="clientName"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Client Name</FormLabel>
+                                    <FormLabel>{t("dialog.clientName")}</FormLabel>
                                     <FormControl>
                                         <Input placeholder="John Doe" {...field} />
                                     </FormControl>
@@ -141,7 +84,7 @@ export function NewAppointmentDialog({ open, onOpenChange, organizationId, onSuc
                             name="clientPhone"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Phone</FormLabel>
+                                    <FormLabel>{t("dialog.phone")}</FormLabel>
                                     <FormControl>
                                         <Input placeholder="(11) 99999-9999" {...field} />
                                     </FormControl>
@@ -154,11 +97,11 @@ export function NewAppointmentDialog({ open, onOpenChange, organizationId, onSuc
                             name="serviceId"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Service</FormLabel>
+                                    <FormLabel>{t("dialog.service")}</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                                         <FormControl>
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Select a service" />
+                                                <SelectValue placeholder={t("dialog.selectService")} />
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
@@ -178,11 +121,11 @@ export function NewAppointmentDialog({ open, onOpenChange, organizationId, onSuc
                             name="professionalId"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Professional (Optional)</FormLabel>
+                                    <FormLabel>{t("dialog.professional")}</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                                         <FormControl>
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Any professional" />
+                                                <SelectValue placeholder={t("dialog.anyProfessional")} />
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
@@ -203,7 +146,7 @@ export function NewAppointmentDialog({ open, onOpenChange, organizationId, onSuc
                                 name="date"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Date</FormLabel>
+                                        <FormLabel>{t("dialog.date")}</FormLabel>
                                         <FormControl>
                                             <Input type="date" {...field} />
                                         </FormControl>
@@ -216,7 +159,7 @@ export function NewAppointmentDialog({ open, onOpenChange, organizationId, onSuc
                                 name="time"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Time</FormLabel>
+                                        <FormLabel>{t("dialog.time")}</FormLabel>
                                         <FormControl>
                                             <Input type="time" {...field} />
                                         </FormControl>
@@ -226,7 +169,7 @@ export function NewAppointmentDialog({ open, onOpenChange, organizationId, onSuc
                             />
                         </div>
                         <DialogFooter>
-                            <Button type="submit" disabled={loading}>{loading ? "Saving..." : "Create"}</Button>
+                            <Button type="submit" disabled={loading}>{loading ? t("dialog.saving") : t("dialog.create")}</Button>
                         </DialogFooter>
                     </form>
                 </Form>
