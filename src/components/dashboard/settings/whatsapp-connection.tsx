@@ -26,14 +26,43 @@ export function WhatsAppConnection({ organization }: WhatsAppConnectionProps) {
     const instanceId = organization.whatsapp_instance_id || "user_" + organization.id.split('-')[0]
     const webhookUrl = `https://barber-saas-api.vercel.app/api/webhook/${organization.id}`
 
-    function handleConnect() {
+    import { createEvolutionInstance } from "@/app/actions/whatsapp"
+
+    // ... inside component
+
+    const [qrCode, setQrCode] = useState<string | null>(null)
+
+    async function handleConnect() {
         setLoading(true)
-        // Simulate API call to fetch QR Code
-        setTimeout(() => {
+        setQrCode(null)
+        try {
+            const result = await createEvolutionInstance(organization.id)
+
+            if (result.error) {
+                alert(result.error)
+                return
+            }
+
+            if (result.qrCode && result.qrCode.base64) {
+                // Common evolution response structure check might be needed
+                setQrCode(result.qrCode.base64)
+            } else if (typeof result.qrCode === 'string') {
+                setQrCode(result.qrCode)
+            }
+
+            // Reload page to update organization state? or just wait for QR scan?
+            // For now, let's keep the user on the page to scan.
+
+        } catch (e) {
+            console.error(e)
+            alert(t("common.error"))
+        } finally {
             setLoading(false)
-            alert("This would open the QR Code modal.")
-        }, 1000)
+        }
     }
+
+    // Update render to show QR Code
+
 
     function handleRefresh() {
         setLoading(true)
@@ -108,6 +137,12 @@ export function WhatsAppConnection({ organization }: WhatsAppConnectionProps) {
                 </div>
 
                 {/* Actions Footer */}
+                {qrCode && (
+                    <div className="flex justify-center p-6 bg-white rounded-lg mb-6">
+                        <img src={qrCode} alt="WhatsApp QR Code" className="max-w-[250px]" />
+                    </div>
+                )}
+
                 <div className="mt-6 flex justify-between items-center">
                     <Button variant="ghost" size="sm" onClick={handleRefresh} disabled={loading} className="text-muted-foreground">
                         <RefreshCcw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
