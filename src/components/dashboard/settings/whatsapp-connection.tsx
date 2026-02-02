@@ -38,18 +38,38 @@ export function WhatsAppConnection({ organization }: WhatsAppConnectionProps) {
         checkStatus()
     }, [instanceId])
 
-    async function checkStatus() {
+    // Poll for status when QR code is visible
+    useEffect(() => {
+        let interval: NodeJS.Timeout
+
+        if (status === 'disconnected' && qrCode) {
+            interval = setInterval(() => {
+                checkStatus(true)
+            }, 3000)
+        }
+
+        return () => {
+            if (interval) clearInterval(interval)
+        }
+    }, [status, qrCode])
+
+    async function checkStatus(silent = false) {
         if (!instanceId) return
-        setLoading(true)
+        if (!silent) setLoading(true)
         try {
             const result = await getEvolutionConnectionStatus(instanceId)
             if (result && result.status) {
-                setStatus(result.status as 'connected' | 'disconnected')
+                const newStatus = result.status as 'connected' | 'disconnected'
+                setStatus(newStatus)
+
+                if (newStatus === 'connected') {
+                    setQrCode(null)
+                }
             }
         } catch (error) {
             console.error("Failed to check status", error)
         } finally {
-            setLoading(false)
+            if (!silent) setLoading(false)
         }
     }
 
