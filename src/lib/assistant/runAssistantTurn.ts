@@ -62,9 +62,9 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
     let heuristicFixedService = false;
 
     // Heuristic: Service
-    if (!mergedState.service_id && !mergedState.service_name && servs) {
+    if (!mergedState.service_id && servs) {
         const keywords = [
-            { terms: ['corte', 'cortar', 'cabelo', 'cabeleira'], match: 'corte' },
+            { terms: ['corte', 'cortar', 'corta', 'cabelo', 'cabeleira'], match: 'corte' },
             { terms: ['barba', 'fazer a barba', 'bigode'], match: 'barba' },
             { terms: ['sobrancelha'], match: 'sobrancelha' },
             { terms: ['pezinho', 'acabamento'], match: 'acabamento' }
