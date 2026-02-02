@@ -27,6 +27,10 @@ export async function processAIResponse(organizationId: string, userPhone: strin
     // 4. Fetch Business Hours for Context
     const { data: businessHours } = await supabase.from('business_hours').select('*').eq('organization_id', organizationId)
 
+    // 5. Fetch Professionals for Context (To avoid name confusion)
+    const { data: professionalsList } = await supabase.from('profiles').select('full_name').eq('organization_id', organizationId).eq('role', 'professional')
+    const professionalsNames = professionalsList?.map(p => p.full_name).join(', ') || "Nenhum cadastrado"
+
     // Format hours for prompt
     const hoursText = businessHours?.map(bg => {
         const days = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
@@ -41,6 +45,7 @@ Seu objetivo é agendar horários de forma RÁPIDA e NATURAL, como um humano no 
 CONTEXTO ATUAL:
 - Cliente: Telefone ${userPhone} (Você JÁ TEM esse número, NÃO peça novamente a menos que queiram alterar).
 - Unidade: Única (${org.name}). NÃO pergunte sobre unidade, já assuma essa.
+- Profissionais Disponíveis: ${professionalsNames}. (Se o usuário disser um desses nomes, é a preferência de profissional, NÃO é o nome do cliente).
 - Data/Hora Atual: ${new Date().toLocaleString('pt-BR')}
 
 ESTILO DE CONVERSA:
