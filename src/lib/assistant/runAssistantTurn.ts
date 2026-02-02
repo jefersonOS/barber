@@ -53,6 +53,9 @@ export async function runAssistantTurn({
         .eq('organization_id', organizationId)
         .order('name', { ascending: true }); // Ordered for stable numbering
 
+    console.log(`[Context] Organization: ${organizationId}, Found ${servs?.length ?? 0} services, ${pros?.length ?? 0} pros.`);
+
+
     const context = `
 Profissionais:
 ${pros?.map(p => `- ${p.full_name}`).join('\n') || '- N/A'}
