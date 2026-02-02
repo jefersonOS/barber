@@ -76,7 +76,9 @@ export async function runAssistantTurn({
         if (missing.length > 0) {
             console.warn("AI tried to hold without required fields:", missing);
             ai.next_action = "ASK_MISSING";
-            finalReply = `Preciso de mais algumas informações antes de agendar. Faltou: ${missing.map(m => m === 'date' ? 'data' : m === 'time' ? 'horário' : m === 'service' ? 'serviço' : 'profissional').join(', ')}.`;
+            // Make the list natural in Portuguese
+            const missingText = missing.map(m => m === 'date' ? 'o dia' : m === 'time' ? 'o horário' : m === 'service' ? 'o serviço' : 'o profissional').join(' e ');
+            finalReply = `Opa, entendi! Para finalizar o agendamento, preciso só confirmar ${missingText}.`;
         } else {
             try {
                 const hold = await createHoldBooking({ supabase, conversationId, state: mergedState, organizationId });
