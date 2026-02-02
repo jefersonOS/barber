@@ -90,10 +90,9 @@ export async function createEvolutionInstance(organizationId: string) {
             events: [
                 "MESSAGES_UPSERT",
                 "MESSAGES_UPDATE",
-                "MESSAGE_ACK",
-                "WHATSAPP_CONNECTION_OPEN",
-                "WHATSAPP_CONNECTION_CLOSE",
-                "WHATSAPP_QR_CODE"
+                "SEND_MESSAGE_UPDATE",
+                "CONNECTION_UPDATE",
+                "QRCODE_UPDATED"
             ],
             // Nested webhook for compatibility ("Double Shot")
             webhook: {
@@ -104,10 +103,9 @@ export async function createEvolutionInstance(organizationId: string) {
                 events: [
                     "MESSAGES_UPSERT",
                     "MESSAGES_UPDATE",
-                    "MESSAGE_ACK",
-                    "WHATSAPP_CONNECTION_OPEN",
-                    "WHATSAPP_CONNECTION_CLOSE",
-                    "WHATSAPP_QR_CODE"
+                    "SEND_MESSAGE_UPDATE",
+                    "CONNECTION_UPDATE",
+                    "QRCODE_UPDATED"
                 ]
             }
         }
