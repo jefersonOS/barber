@@ -30,21 +30,40 @@ export interface AssistantTurnResult {
     missing_fields: string[];
 }
 
-export function applyStateUpdates(currentState: BookingState, updates: Partial<BookingState>): BookingState {
-    return {
-        ...currentState,
-        ...updates
-    };
+// Safe merge: undefined/null values in 'updates' do NOT overwrite existing state
+export function applyStateUpdates(
+    currentState: BookingState,
+    updates: Partial<BookingState>
+): BookingState {
+    const out: BookingState = { ...currentState };
+    if (!updates) return out;
+
+    for (const [k, v] of Object.entries(updates) as [keyof BookingState, any][]) {
+        if (v === undefined || v === null) continue;
+
+        // Special merge for last_offer object
+        if (k === "last_offer" && typeof v === "object") {
+            out.last_offer = { ...(out.last_offer ?? {}), ...(v ?? {}) };
+            continue;
+        }
+
+        (out as any)[k] = v;
+    }
+
+    return out;
 }
 
 export function computeMissing(state: BookingState): string[] {
     const missing: string[] = [];
-    // Key OR ID satisfies the requirement
-    if (!state.service_key && !state.service_id) missing.push("service");
-    // Name OR ID satisfies (though ID is better)
+
+    // Service: Key OR ID OR Name satisfies requirement
+    if (!state.service_key && !state.service_id && !state.service_name) missing.push("service");
+
+    // Professional: ID OR Name satisfies
     if (!state.professional_id && !state.professional_name) missing.push("professional");
 
     if (!state.date) missing.push("date");
     if (!state.time) missing.push("time");
+
     return missing;
 }

@@ -56,11 +56,6 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
     const preAIState = { ...state };
     const lowerText = incomingText.toLowerCase();
 
-    // Sanitize incoming state artifacts if any (though state comes from DB)
-    // But helpful if DB has garbage
-    if (preAIState.service_id === "undefined" || preAIState.service_id === "null") preAIState.service_id = undefined;
-    if (preAIState.service_name === "undefined" || preAIState.service_name === "null") preAIState.service_name = undefined;
-
     // --- HEURISTICS (NLU - Robust Semantic Extraction) ---
     // 1. Service Extraction
     const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -142,8 +137,15 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
         if (missing.length > 0) {
             console.warn("AI tried to hold without required fields:", missing);
             ai.next_action = "ASK_MISSING";
-            // Make the list natural in Portuguese
-            const missingText = missing.map(m => m === 'date' ? 'o dia' : m === 'time' ? 'o horário' : m === 'service' ? 'o serviço' : 'o profissional').join(' e ');
+
+            // Natural language mapping for missing fields
+            const labels: Record<string, string> = {
+                service: "o serviço (corte, barba...)",
+                professional: "o profissional",
+                date: "o dia",
+                time: "o horário"
+            };
+            const missingText = missing.map(m => labels[m] ?? m).join(' e ');
             finalReply = `Opa, entendi! Para finalizar o agendamento, preciso só confirmar ${missingText}.`;
         } else {
             try {
