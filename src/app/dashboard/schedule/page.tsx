@@ -6,7 +6,7 @@ export default async function SchedulePage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return null
 
-    const { data: profile } = await supabase.from('profiles').select('organization_id').eq('id', user.id).single()
+    const { data: profile } = await supabase.from('profiles').select('organization_id, role').eq('id', user.id).single()
 
     // Pass organization ID to client component to fetch data
     return (
