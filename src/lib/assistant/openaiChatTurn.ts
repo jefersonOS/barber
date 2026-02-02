@@ -14,8 +14,21 @@ export async function chatTurn({
     incomingText: string;
     context: string;
 }): Promise<AssistantTurnResult> {
+    // Get current time in Brazil (or organization timezone)
+    const now = new Date().toLocaleString("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
     const system = `
 Você é o Atendente IA da barbearia.
+HOJE É: ${now} (Horário de Brasília)
+    
 ANTI-LOOP: nunca pergunte algo já presente no BOOKING_STATE ou já dito no histórico.
 Se cliente disse "pode ser", "sim", "combinado", considere CONFIRMADO a última proposta feita.
 
@@ -49,8 +62,12 @@ ${JSON.stringify(history)}
 INSTRUÇÕES:
 1. Analise a mensagem do usuário.
 2. Identifique intenções de serviço/profissional usando a lista.
-3. Atualize o state_updates com os NOMES CANÔNICOS da lista.
-4. Decida a next_action.
+3. EXTRAIA DATAS para o formato YYYY-MM-DD usando "HOJE" como referência.
+   - "Amanhã" -> HOJE + 1 dia.
+   - "Terça" -> Próxima terça a partir de HOJE.
+   - Preencha "date" (YYYY-MM-DD) e "time" (HH:MM) no state_updates se o usuário falou.
+4. Atualize o state_updates com os NOMES CANÔNICOS da lista.
+5. Decida a next_action.
    - Se falta info (service, professional, date, time), next_action = "ASK_MISSING".
    - Se tem tudo e não tem hold, next_action = "CREATE_HOLD".
    - Se tem hold e não pagou, next_action = "CREATE_PAYMENT".
