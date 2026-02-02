@@ -478,19 +478,17 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
 
                 // Save the ID -> DELETED (Will save at end)
 
-                // Should we auto-trigger payment?
-                // If tone is "Create hold then ask payment", we might want to do both.
-                // Re-evaluating next step: 
-                // If hold created successfully, we probably want to ask for payment immediately or confirm "Reserva segura, agora pague".
-                // Let's assume flow continues to payment.
+                // Auto-trigger payment link generation
+                try {
+                    console.log('[Payment] Generating Stripe checkout for booking:', hold.bookingId);
+                    const checkout = await createStripeCheckout({ supabase, bookingId: hold.bookingId, state: mergedState });
+                    mergedState.payment_id = checkout.sessionId;
 
-                // If we want to chain actions:
-                /* 
-                const checkout = await createStripeCheckout({ supabase, bookingId: hold.bookingId, state: mergedState });
-                finalReply += `\n\nReserva iniciada! Para confirmar, faça o pagamento do sinal aqui: ${checkout.url}`;
-                */
-                finalReply += "\n\nPré-reserva realizada! Vou gerar o link de pagamento...";
-                // Force next implementation logic if we want auto-link
+                    finalReply += `\n\n✅ Pré-reserva realizada!\n\n💳 Para confirmar, faça o pagamento aqui:\n${checkout.url}\n\n(Assim que pagar, eu confirmo automaticamente!)`;
+                } catch (paymentError: any) {
+                    console.error('[Payment] Failed to create checkout:', paymentError);
+                    finalReply += "\n\n⚠️ Reserva criada, mas houve um erro ao gerar o link de pagamento. Tente novamente em instantes.";
+                }
             } catch (e: any) {
                 console.error("Failed to create hold", e);
                 // Catch specific errors from actions.ts
