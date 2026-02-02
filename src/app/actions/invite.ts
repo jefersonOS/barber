@@ -17,7 +17,7 @@ function getAdminClient() {
 
 export async function getInvite(token: string) {
     const supabaseAdmin = getAdminClient()
-    if (!supabaseAdmin) return null
+    if (!supabaseAdmin) return { success: false, error: "Erro de Configuração: SUPABASE_SERVICE_ROLE_KEY não encontrada.", errorCode: "CONFIG_ERROR" }
 
     try {
         const { data, error } = await supabaseAdmin
@@ -27,14 +27,14 @@ export async function getInvite(token: string) {
             .eq('status', 'pending')
             .single()
 
-        if (error) {
+        if (error || !data) {
             console.error("Error fetching invite:", error)
-            return null
+            return { success: false, error: "Convite inválido ou expirado.", errorCode: "NOT_FOUND" }
         }
-        return data
+        return { success: true, invite: data }
     } catch (e) {
         console.error("Unexpected error in getInvite:", e)
-        return null
+        return { success: false, error: "Erro inesperado ao buscar convite.", errorCode: "SERVER_ERROR" }
     }
 }
 
@@ -43,8 +43,8 @@ export async function acceptInvite(token: string, email: string, password: strin
     if (!supabaseAdmin) return { error: "Erro interno: Chave de API não configurada." }
 
     // 1. Validate Invite
-    const invite = await getInvite(token)
-    if (!invite) return { error: "Convite inválido ou expirado." }
+    const { success, invite, error } = await getInvite(token)
+    if (!success || !invite) return { error: error || "Convite inválido." }
 
     // 2. Create Auth User
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
