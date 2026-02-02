@@ -13,9 +13,11 @@ import { ptBR, enUS } from "date-fns/locale"
 
 interface ScheduleViewProps {
     organizationId: string
+    userRole?: string
+    userId?: string
 }
 
-export function ScheduleView({ organizationId }: ScheduleViewProps) {
+export function ScheduleView({ organizationId, userRole, userId }: ScheduleViewProps) {
     const [date, setDate] = useState<Date | undefined>(new Date())
     const [appointments, setAppointments] = useState<any[]>([])
     const [loading, setLoading] = useState(false)
@@ -35,13 +37,19 @@ export function ScheduleView({ organizationId }: ScheduleViewProps) {
         const start = startOfDay(selectedDate).toISOString()
         const end = endOfDay(selectedDate).toISOString()
 
-        const { data, error } = await supabase
+        let query = supabase
             .from('appointments')
             .select('*, profiles(full_name), services(name)')
             .eq('organization_id', organizationId)
             .gte('start_time', start)
             .lte('start_time', end)
             .order('start_time', { ascending: true })
+
+        if (userRole === 'professional' && userId) {
+            query = query.eq('professional_id', userId)
+        }
+
+        const { data, error } = await query
 
         if (error) {
             console.error(error)

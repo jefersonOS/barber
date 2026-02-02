@@ -20,7 +20,8 @@ export default async function DashboardPage() {
         redirect("/onboarding")
     }
 
-    const { totalRevenue, currentMonthRevenue, percentageChange, monthAppointments } = await getFinancialMetrics(profile.organization_id)
+    const professionalId = profile.role === 'professional' ? profile.id : undefined
+    const { totalRevenue, currentMonthRevenue, percentageChange, monthAppointments } = await getFinancialMetrics(profile.organization_id, professionalId)
 
     return (
         <div className="space-y-6">

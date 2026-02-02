@@ -12,7 +12,11 @@ export default async function SchedulePage() {
     return (
         <div className="space-y-6">
             {/* Title moved to ScheduleView for client-side translation */}
-            <ScheduleView organizationId={profile?.organization_id} />
+            <ScheduleView
+                organizationId={profile?.organization_id}
+                userRole={profile?.role}
+                userId={user.id}
+            />
         </div>
     )
 }

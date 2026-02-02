@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { startOfMonth, endOfMonth, subMonths } from 'date-fns'
 
-export async function getFinancialMetrics(organizationId: string) {
+export async function getFinancialMetrics(organizationId: string, professionalId?: string) {
     const supabase = await createClient()
     const now = new Date()
     const firstDayCurrentMonth = startOfMonth(now).toISOString()
@@ -10,17 +10,27 @@ export async function getFinancialMetrics(organizationId: string) {
     const firstDayLastMonth = startOfMonth(subMonths(now, 1)).toISOString()
     const lastDayLastMonth = endOfMonth(subMonths(now, 1)).toISOString()
 
+    // Helper to apply professional filter
+    const applyFilter = (query: any) => {
+        if (professionalId) {
+            return query.eq('professional_id', professionalId)
+        }
+        return query
+    }
+
     // 1. Total Revenue (Lifetime)
-    const { data: allPaid } = await supabase
+    let queryTotal = supabase
         .from('appointments')
         .select('price')
         .eq('organization_id', organizationId)
         .eq('payment_status', 'paid')
 
-    const totalRevenue = allPaid?.reduce((acc, curr) => acc + (Number(curr.price) || 0), 0) || 0
+    const { data: allPaid } = await applyFilter(queryTotal)
+
+    const totalRevenue = allPaid?.reduce((acc: number, curr: any) => acc + (Number(curr.price) || 0), 0) || 0
 
     // 2. Current Month Revenue
-    const { data: monthPaid } = await supabase
+    let queryMonth = supabase
         .from('appointments')
         .select('price')
         .eq('organization_id', organizationId)
@@ -28,10 +38,12 @@ export async function getFinancialMetrics(organizationId: string) {
         .gte('start_time', firstDayCurrentMonth)
         .lte('start_time', lastDayCurrentMonth)
 
-    const currentMonthRevenue = monthPaid?.reduce((acc, curr) => acc + (Number(curr.price) || 0), 0) || 0
+    const { data: monthPaid } = await applyFilter(queryMonth)
+
+    const currentMonthRevenue = monthPaid?.reduce((acc: number, curr: any) => acc + (Number(curr.price) || 0), 0) || 0
 
     // 3. Last Month Revenue (for comparison)
-    const { data: lastMonthPaid } = await supabase
+    let queryLastMonth = supabase
         .from('appointments')
         .select('price')
         .eq('organization_id', organizationId)
@@ -39,7 +51,9 @@ export async function getFinancialMetrics(organizationId: string) {
         .gte('start_time', firstDayLastMonth)
         .lte('start_time', lastDayLastMonth)
 
-    const lastMonthRevenue = lastMonthPaid?.reduce((acc, curr) => acc + (Number(curr.price) || 0), 0) || 0
+    const { data: lastMonthPaid } = await applyFilter(queryLastMonth)
+
+    const lastMonthRevenue = lastMonthPaid?.reduce((acc: number, curr: any) => acc + (Number(curr.price) || 0), 0) || 0
 
     // Calculate percentage change
     let percentageChange = 0
@@ -50,12 +64,14 @@ export async function getFinancialMetrics(organizationId: string) {
     }
 
     // 4. Total Appointments (Month)
-    const { count: monthAppointments } = await supabase
+    let queryAppointments = supabase
         .from('appointments')
         .select('*', { count: 'exact', head: true })
         .eq('organization_id', organizationId)
         .gte('start_time', firstDayCurrentMonth)
         .lte('start_time', lastDayCurrentMonth)
+
+    const { count: monthAppointments } = await applyFilter(queryAppointments)
 
     return {
         totalRevenue,
@@ -63,4 +79,12 @@ export async function getFinancialMetrics(organizationId: string) {
         percentageChange: percentageChange.toFixed(1),
         monthAppointments: monthAppointments || 0
     }
+}
+
+return {
+    totalRevenue,
+    currentMonthRevenue,
+    percentageChange: percentageChange.toFixed(1),
+    monthAppointments: monthAppointments || 0
+}
 }

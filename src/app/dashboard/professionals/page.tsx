@@ -1,6 +1,9 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
+import { Plus } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useEffect, useState } from "react"
@@ -35,7 +38,15 @@ export default function ProfessionalsPage() {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-3xl font-bold tracking-tight">{t("professionals.title")}</h1>
+            <div className="flex items-center justify-between">
+                <h1 className="text-3xl font-bold tracking-tight">{t("professionals.title")}</h1>
+                <Link href="/dashboard/professionals/new">
+                    <Button>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Novo Profissional
+                    </Button>
+                </Link>
+            </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 {professionals.map((pro) => (
                     <Card key={pro.id}>

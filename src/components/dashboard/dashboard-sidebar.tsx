@@ -23,27 +23,33 @@ export function DashboardSidebar() {
         router.push("/login")
     }
 
+    const [userRole, setUserRole] = useState<string | null>(null)
+
     useEffect(() => {
-        async function checkAdmin() {
+        async function fetchRole() {
             const supabase = createClient()
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) return
 
-            const { data: profile } = await supabase.from('profiles').select('is_super_admin').eq('id', user.id).single()
-            if (profile?.is_super_admin) {
-                setIsSuperAdmin(true)
+            const { data: profile } = await supabase.from('profiles').select('role, is_super_admin').eq('id', user.id).single()
+            if (profile) {
+                setUserRole(profile.role)
+                if (profile.is_super_admin) setIsSuperAdmin(true)
             }
         }
-        checkAdmin()
+        fetchRole()
     }, [])
 
     const sidebarItems = [
         { icon: LayoutDashboard, label: t("navbar.dashboard"), href: "/dashboard" },
         { icon: Calendar, label: t("navbar.schedule"), href: "/dashboard/schedule" },
-        { icon: Scissors, label: t("navbar.services"), href: "/dashboard/services" },
-        { icon: Users, label: t("navbar.professionals"), href: "/dashboard/professionals" },
-        { icon: BarChart, label: t("navbar.reports"), href: "/dashboard/reports" },
-        { icon: Settings, label: t("navbar.settings"), href: "/dashboard/settings" },
+        // Items restricted to Owner/Admin
+        ...(userRole !== 'professional' ? [
+            { icon: Scissors, label: t("navbar.services"), href: "/dashboard/services" },
+            { icon: Users, label: t("navbar.professionals"), href: "/dashboard/professionals" },
+            { icon: BarChart, label: t("navbar.reports"), href: "/dashboard/reports" },
+            { icon: Settings, label: t("navbar.settings"), href: "/dashboard/settings" },
+        ] : []),
         ...(isSuperAdmin ? [{ icon: LayoutDashboard, label: "Platform Admin", href: "/dashboard/admin" }] : [])
     ]
 
