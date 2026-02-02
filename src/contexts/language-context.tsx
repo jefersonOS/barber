@@ -18,7 +18,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     // Given the request "change to portuguese", I'll default to 'en' and let them switch, or check browser.
     // For simplicity, let's start with 'en' to match current state, or 'pt' if we want to force it.
     // I'll default to 'en'
-    const [language, setLanguageState] = useState<Language>('en')
+    const [language, setLanguageState] = useState<Language>('pt')
 
     useEffect(() => {
         // Persist choice if needed? For MVP, just state.

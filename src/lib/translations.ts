@@ -136,5 +136,12 @@ export const translations = {
         "whatsapp.btn.connect": "Conectar WhatsApp",
         "whatsapp.btn.disconnect": "Desconectar",
         "whatsapp.copy": "Copiar",
+        "whatsapp.webhook_configured_success": "Webhook configurado com sucesso!",
+        "whatsapp.confirm_disconnect": "Tem certeza que deseja desconectar? Isso irá parar o atendimento via IA.",
+        "whatsapp.manual_config_help": "Use este botão caso a configuração automática falhe.",
+
+        "settings.validation.name": "Nome deve ter pelo menos 2 caracteres.",
+        "settings.placeholder.name": "Minha Barbearia",
+        "settings.placeholder.instance": "ID da Instância",
     }
 }

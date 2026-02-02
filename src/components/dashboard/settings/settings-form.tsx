@@ -21,7 +21,7 @@ import { useRouter } from "next/navigation"
 
 const formSchema = z.object({
     name: z.string().min(2, {
-        message: "Name must be at least 2 characters.",
+        message: "O nome deve ter pelo menos 2 caracteres.",
     }),
     whatsapp_instance_id: z.string().optional(),
 })
@@ -81,7 +81,7 @@ export function SettingsForm({ organization }: SettingsFormProps) {
                         <FormItem>
                             <FormLabel>{t("settings.orgName")}</FormLabel>
                             <FormControl>
-                                <Input placeholder="My Barbershop" {...field} />
+                                <Input placeholder={t("settings.placeholder.name")} {...field} />
                             </FormControl>
                             <FormDescription>
                                 {t("settings.orgNameDesc")}
@@ -97,7 +97,7 @@ export function SettingsForm({ organization }: SettingsFormProps) {
                         <FormItem>
                             <FormLabel>{t("settings.whatsapp")}</FormLabel>
                             <FormControl>
-                                <Input placeholder="instance_id" {...field} />
+                                <Input placeholder={t("settings.placeholder.instance")} {...field} />
                             </FormControl>
                             <FormDescription>
                                 {t("settings.whatsappDesc")}

@@ -204,7 +204,7 @@ export function WhatsAppConnection({ organization }: WhatsAppConnectionProps) {
                             </div>
 
                             <p className="text-[10px] text-slate-500 leading-tight">
-                                Use this button if webhook keys do not trigger automatically.
+                                {t("whatsapp.manual_config_help")}
                             </p>
                         </div>
                     </div>
