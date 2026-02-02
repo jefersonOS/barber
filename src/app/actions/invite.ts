@@ -5,6 +5,10 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 
 // Helper to get admin client
 function getAdminClient() {
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        console.error("SUPABASE_SERVICE_ROLE_KEY is missing")
+        return null
+    }
     return createAdminClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -13,19 +17,31 @@ function getAdminClient() {
 
 export async function getInvite(token: string) {
     const supabaseAdmin = getAdminClient()
-    const { data, error } = await supabaseAdmin
-        .from('professional_invites')
-        .select('*, organizations(name)')
-        .eq('token', token)
-        .eq('status', 'pending')
-        .single()
+    if (!supabaseAdmin) return null
 
-    if (error || !data) return null
-    return data
+    try {
+        const { data, error } = await supabaseAdmin
+            .from('professional_invites')
+            .select('*, organizations(name)')
+            .eq('token', token)
+            .eq('status', 'pending')
+            .single()
+
+        if (error) {
+            console.error("Error fetching invite:", error)
+            return null
+        }
+        return data
+    } catch (e) {
+        console.error("Unexpected error in getInvite:", e)
+        return null
+    }
 }
 
 export async function acceptInvite(token: string, email: string, password: string, name: string) {
     const supabaseAdmin = getAdminClient()
+    if (!supabaseAdmin) return { error: "Erro interno: Chave de API não configurada." }
+
     // 1. Validate Invite
     const invite = await getInvite(token)
     if (!invite) return { error: "Convite inválido ou expirado." }
