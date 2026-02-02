@@ -30,6 +30,7 @@ REGRA DE OURO (ANTI-ALUCINAÇÃO):
 EXTRAÇÃO INTELIGENTE (MUITO IMPORTANTE):
 - O usuário fala de jeito informal ("cortar", "tapar a juba", "fazer a barba").
 - Você deve comparar com a lista "SERVIÇOS" abaixo e encontrar o DE MAIOR MATCH.
+- SE O USUÁRIO DISSE ALGO QUE PARECE SERVIÇO, VOCÊ *DEVE* ESCOLHER UM DA LISTA. Não deixe vazio.
 - NO JSON "state_updates", descreva o \`service_name\` COM O NOME EXATO DA LISTA, não o texto do usuário.
   Exemplo: Usuário diz "cortar" -> Lista tem "Corte Tradicional" -> \`service_name\`: "Corte Tradicional".
   Exemplo: Usuário diz "barba" -> Lista tem "Barba Completa" -> \`service_name\`: "Barba Completa".

@@ -40,12 +40,15 @@ export async function runAssistantTurn({
 
     // 3. Prepare Context (Business Hours, Pros, Services)
     // Fetching strictly what's needed for the prompt
-    const { data: pros } = await supabase.from('profiles').select('full_name').eq('organization_id', organizationId).eq('role', 'professional');
-    const { data: servs } = await supabase.from('services').select('name, price').eq('organization_id', organizationId);
+    const { data: pros } = await supabase.from('profiles').select('id, full_name').eq('organization_id', organizationId).eq('role', 'professional');
+    const { data: servs } = await supabase.from('services').select('id, name, price').eq('organization_id', organizationId);
 
     const context = `
-	Profissionais: ${pros?.map(p => p.full_name).join(', ') || 'N/A'}
-	Serviços: ${servs?.map(s => `${s.name} (R$${s.price})`).join(', ') || 'N/A'}
+Profissionais:
+${pros?.map(p => `- ${p.full_name}`).join('\n') || '- N/A'}
+
+Serviços:
+${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
 	`;
 
     // 4. Run AI Turn
@@ -54,22 +57,72 @@ export async function runAssistantTurn({
     // 5. Apply Updates
     const mergedState = applyStateUpdates(state, ai.state_updates);
 
-    // Server-side validation of missing fields (Don't trust AI blindly)
-    // const missing = computeMissing(mergedState); 
-    // We can trust AI's "missing_fields" for the reply generation, but for ACTION logic we verify.
+    // --- HEURISTICS START ---
+    const lowerText = incomingText.toLowerCase();
+    let heuristicFixedService = false;
+
+    // Heuristic: Service
+    if (!mergedState.service_id && !mergedState.service_name && servs) {
+        const keywords = [
+            { terms: ['corte', 'cortar', 'cabelo', 'cabeleira'], match: 'corte' },
+            { terms: ['barba', 'fazer a barba', 'bigode'], match: 'barba' },
+            { terms: ['sobrancelha'], match: 'sobrancelha' },
+            { terms: ['pezinho', 'acabamento'], match: 'acabamento' }
+        ];
+
+        let found = servs.find(s => lowerText.includes(s.name.toLowerCase()));
+        if (!found) {
+            for (const k of keywords) {
+                if (k.terms.some(t => lowerText.includes(t))) {
+                    found = servs.find(s => s.name.toLowerCase().includes(k.match));
+                    if (found) break;
+                }
+            }
+        }
+
+        if (found) {
+            console.log(`[Heuristic] Matched service: ${found.name}`);
+            mergedState.service_name = found.name;
+            mergedState.service_id = found.id;
+            heuristicFixedService = true;
+        }
+    }
+
+    // Heuristic: Professional
+    if (!mergedState.professional_id && !mergedState.professional_name && pros) {
+        const foundPro = pros.find(p => {
+            const firstName = p.full_name.split(' ')[0].toLowerCase();
+            return lowerText.includes(firstName) && firstName.length > 2;
+        });
+
+        if (foundPro) {
+            console.log(`[Heuristic] Matched pro: ${foundPro.full_name}`);
+            mergedState.professional_name = foundPro.full_name;
+            mergedState.professional_id = foundPro.id;
+        }
+    }
+    // --- HEURISTICS END ---
 
     // 6. Save State
     await supabase.from("booking_state").upsert({
         conversation_id: conversationId,
-        state: mergedState as any, // jsonb casting
+        state: mergedState as any,
         last_question_key: ai.next_action === "ASK_MISSING" ? "ASK_MISSING" : null,
     });
 
     let finalReply = ai.reply;
 
     // 7. Execute Actions
-    // 7. Execute Actions
     const missing = computeMissing(mergedState);
+
+    // Override AI action if heuristics filled the gaps
+    if (missing.length === 0 && ai.next_action === 'ASK_MISSING') {
+        ai.next_action = 'CREATE_HOLD';
+        finalReply = "Perfeito!";
+    } else if (heuristicFixedService && missing.length > 0) {
+        const missingText = missing.map(m => m === 'date' ? 'do dia' : m === 'time' ? 'do horário' : m === 'professional' ? 'de qual profissional' : m).join(' e ');
+        finalReply = `Entendido, ${mergedState.service_name}. Para agendar, preciso agora saber ${missingText}.`;
+    }
 
     if (ai.next_action === "CREATE_HOLD") {
         // Verify we have enough info
