@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useLanguage } from "@/contexts/language-context"
 import { Copy, QrCode, RefreshCcw, Wifi, WifiOff } from "lucide-react"
 import { useState } from "react"
-import { createEvolutionInstance, getEvolutionConnectionStatus } from "@/app/actions/whatsapp"
+import { createEvolutionInstance, getEvolutionConnectionStatus, deleteEvolutionInstance } from "@/app/actions/whatsapp"
 import { useEffect } from "react"
 
 // ... imports
@@ -43,6 +43,25 @@ export function WhatsAppConnection({ organization }: WhatsAppConnectionProps) {
             }
         } catch (error) {
             console.error("Failed to check status", error)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    async function handleDisconnect() {
+        if (!confirm(t("whatsapp.confirm_disconnect"))) return
+
+        setLoading(true)
+        try {
+            const result = await deleteEvolutionInstance(organization.id)
+            if (result.error) {
+                alert(result.error)
+            } else {
+                setStatus('disconnected')
+                setQrCode(null)
+            }
+        } catch (error) {
+            console.error("Disconnect error:", error)
         } finally {
             setLoading(false)
         }
