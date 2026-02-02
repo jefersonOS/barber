@@ -72,13 +72,27 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
 
     if (!Number.isNaN(n) && n >= 0) {
         // Choice: SERVICE
+        // Choice: SERVICE
         if (lastQuestion === "service" && servs?.length) {
-            const picked = servs[n - 1]; // 1-based index
+            // Check if we offered a specific sub-list (e.g. filtered by "corte")
+            const offeredIds = stateRow?.state?.last_offer?.service_options;
+            let picked: { id: string; name: string } | undefined;
+
+            if (offeredIds && offeredIds.length > 0) {
+                // Map number to the Specific ID from the list
+                const id = offeredIds[n - 1]; // 1-based
+                if (id) picked = servs.find(s => s.id === id);
+            } else {
+                // Fallback to full list if no specific options saved
+                picked = servs[n - 1];
+            }
+
             if (picked) {
                 console.log(`[Numeric] Selected Service #${n}: ${picked.name}`);
                 preAIState.service_id = picked.id;
                 preAIState.service_name = picked.name;
-                preAIState.service_key = "corte"; // assume generic intent if strict key needed, or leave null
+                // If we selected a specific service, we can infer the key/intent or just left it as is.
+                // preAIState.service_key = "corte"; // Don't force key if we have ID.
             }
         }
 
@@ -137,7 +151,26 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
 
     if (detectedKey) {
         console.log(`[Heuristic] Detected Intent Key: ${detectedKey}`);
+
+        // --- STALE STATE RESET --- 
+        // If we detect a new intent (e.g. "corte"), we assume a NEW booking flow.
+        // We wipe old Date, Time, Professional to prevent jumping to end.
+        // Exception: If incoming text explicitly mentions "amanhã" or a pro, 
+        // heuristics/AI should pick that up in THIS turn, so wiping here is safe 
+        // (as long as we do it BEFORE regex/AI extraction).
+
         preAIState.service_key = detectedKey;
+        // WIPE State
+        preAIState.service_id = undefined;
+        preAIState.service_name = undefined;
+        preAIState.professional_id = undefined;
+        preAIState.professional_name = undefined;
+        preAIState.date = undefined;
+        preAIState.time = undefined;
+        preAIState.last_offer = undefined;
+
+        console.log("[State] Wiped stale state due to new Intent Key.");
+
 
         // Try to resolve key -> ID using Fuzzy Matcher
         if (!preAIState.service_id && servs) {
@@ -287,18 +320,29 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
     // But Phase 2 might say: "Hey, I have 'service_key' but no 'service_id'. I can't HOLD yet."
     // In that specific case, we Trigger the Menu to resolve the ID.
 
-    // If we have "Intent" but no "ID", and we have Date/Time/Pro (so we are at the end) -> Trigger Resolver
-    if (mergedState.service_key && !mergedState.service_id && !missingConversation.includes("date") && !missingConversation.includes("time") && !missingConversation.includes("professional")) {
-        console.log("[Flow] Ready for HOLD but incomplete Service ID. Triggering Menu Resolver.");
+    // PHASE 1: Conversation Flow (Deterministic Router)
+    // 1) NO INTENT -> List Services
+    // 2) INTENT YES, PRO NO -> List Pros
+    // 3) INTENT + PRO YES, DATE NO -> Ask Date
+    // 4) ALL YES, BUT ID NO -> Resolve ID (Filtered Menu)
 
+    const hasServiceIntent = (s: BookingState) => Boolean(s.service_key || s.service_name || s.service_id);
+    const hasProfessional = (s: BookingState) => Boolean(s.professional_id || s.professional_name);
+    const hasDateTime = (s: BookingState) => Boolean(s.date && s.time);
+
+    // 1) Missing Service Intent (Total)
+    if (!hasServiceIntent(mergedState)) {
         const list = (servs ?? [])
             .map((s, i) => `${i + 1}) ${s.name} (R$${s.price})`)
             .join("\n");
 
-        finalReply =
-            `Para confirmar o agendamento de '${mergedState.service_key}', preciso saber qual opção exata:\n\n` +
+        const finalReply =
+            `Qual serviço você quer?\n\n` +
             `${list}\n\n` +
             `Responda com o número (ex: 1).`;
+
+        // Save options for numeric selection
+        mergedState.last_offer = { ...mergedState.last_offer, service_options: (servs ?? []).map(s => s.id) };
 
         await supabase.from("booking_state").upsert({
             conversation_id: conversationId,
@@ -306,7 +350,95 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
             last_question_key: "service",
         });
 
+        console.log("[Router] 1. Asking for Service Intent");
         return { reply: finalReply, action: "ASK_MISSING" };
+    }
+
+    // 2) Missing Professional (But has Intent)
+    if (!hasProfessional(mergedState)) {
+        // Optimization: If only 1 pro exists, auto-select
+        if ((pros ?? []).length === 1 && pros![0]) {
+            console.log("[Router] Auto-selecting single professional");
+            mergedState.professional_id = pros![0].id;
+            mergedState.professional_name = pros![0].full_name;
+            // Fallthrough to next check (Date/Time)
+        } else {
+            const list = (pros ?? [])
+                .map((p, i) => `${i + 1}) ${p.full_name}`)
+                .join("\n");
+
+            const finalReply =
+                `Show ✅ pra *${mergedState.service_key ?? mergedState.service_name ?? "o serviço"}*.\n` +
+                `Agora escolhe o profissional:\n\n` +
+                `0) Primeiro disponível\n` +
+                `${list}\n\n` +
+                `Responda com o número (ex: 2).`;
+
+            await supabase.from("booking_state").upsert({
+                conversation_id: conversationId,
+                state: mergedState as any,
+                last_question_key: "professional",
+            });
+
+            console.log("[Router] 2. Asking for Professional");
+            return { reply: finalReply, action: "ASK_MISSING" };
+        }
+    }
+
+    // 3) Missing Date/Time
+    if (!hasDateTime(mergedState)) {
+        // Fallback to AI reply if it asked naturally
+        if (ai.next_action !== "ASK_MISSING") {
+            ai.next_action = "ASK_MISSING";
+            finalReply = `Fechado ✅\nAgora me diz *dia e horário* (ex: "terça 16:00").`;
+        } else {
+            finalReply = ai.reply; // Use AI's natural question if it asked
+        }
+
+        console.log("[Router] 3. Asking for Date/Time");
+        // Persist at end
+    } else {
+        // 4) READY FOR HOLD? Check Service ID
+        // If we have Intent but failed to resolve ID, NOW we ask specifically.
+        if (!mergedState.service_id) {
+            console.log("[Router] 4. Resolving Exact Service ID");
+
+            // Filter options based on Key
+            const norm = (x: string) => x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            const key = mergedState.service_key;
+
+            const candidates = (servs ?? []).filter(s => {
+                const n = norm(s.name);
+                return key === "corte"
+                    ? (n.includes("corte") || n.includes("cabelo") || n.includes("degrade") || n.includes("navalha") || n.includes("social"))
+                    : key === "barba"
+                        ? n.includes("barba")
+                        : key === "sobrancelha"
+                            ? n.includes("sobrancelha")
+                            : true;
+            });
+
+            const options = candidates.length ? candidates : (servs ?? []);
+            const list = options
+                .map((s, i) => `${i + 1}) ${s.name} (R$${s.price})`)
+                .join("\n");
+
+            finalReply =
+                `Pra confirmar no sistema, escolhe a opção exata de *${key ?? "serviço"}*:\n\n` +
+                `${list}\n\n` +
+                `Responda com o número (ex: 1).`;
+
+            // Save options for numeric selection
+            mergedState.last_offer = { ...mergedState.last_offer, service_options: options.map(s => s.id) };
+
+            await supabase.from("booking_state").upsert({
+                conversation_id: conversationId,
+                state: mergedState as any,
+                last_question_key: "service",
+            });
+
+            return { reply: finalReply, action: "ASK_MISSING" };
+        }
     }
 
     if (ai.next_action === "CREATE_HOLD" || (readyToHold && ai.next_action !== "CREATE_PAYMENT")) {

@@ -20,6 +20,7 @@ export interface BookingState {
         professional_name?: string;
         date?: string;
         time?: string;
+        service_options?: string[]; // IDs of services listed in the menu
     };
 }
 
@@ -72,8 +73,8 @@ export function computeMissing(state: BookingState): string[] {
 export function computeMissingForHold(state: BookingState): string[] {
     const missing: string[] = [];
 
-    // HOLD needs real ID
-    if (!state.service_id) missing.push("service_id");
+    // HOLD needs real ID or at least a Key we can resolve later
+    if (!state.service_id && !state.service_key) missing.push("service_id");
     // Professional can be "any" or ID
     if (!state.professional_id) missing.push("professional_id");
 
