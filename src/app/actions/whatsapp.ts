@@ -87,6 +87,7 @@ export async function createEvolutionInstance(organizationId: string) {
             url: webhookUrl,
             webhookByEvents: false,
             webhookBase64: true,
+            base64: true, // Compatibility alias
             events: [
                 "MESSAGES_UPSERT",
                 "MESSAGES_UPDATE",
@@ -100,6 +101,7 @@ export async function createEvolutionInstance(organizationId: string) {
                 url: webhookUrl,
                 webhookByEvents: false,
                 webhookBase64: true,
+                base64: true, // Compatibility alias
                 events: [
                     "MESSAGES_UPSERT",
                     "MESSAGES_UPDATE",
@@ -278,6 +280,7 @@ export async function configureEvolutionWebhook(organizationId: string) {
         url: webhookUrl,
         webhookByEvents: false,
         webhookBase64: true,
+        base64: true, // Compatibility alias
         events: [
             "MESSAGES_UPSERT",
             "MESSAGES_UPDATE",
@@ -290,6 +293,7 @@ export async function configureEvolutionWebhook(organizationId: string) {
             url: webhookUrl,
             webhookByEvents: false,
             webhookBase64: true,
+            base64: true, // Compatibility alias
             events: [
                 "MESSAGES_UPSERT",
                 "MESSAGES_UPDATE",
