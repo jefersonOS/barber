@@ -40,8 +40,18 @@ export async function runAssistantTurn({
 
     // 3. Prepare Context (Business Hours, Pros, Services)
     // Fetching strictly what's needed for the prompt
-    const { data: pros } = await supabase.from('profiles').select('id, full_name').eq('organization_id', organizationId).eq('role', 'professional');
-    const { data: servs } = await supabase.from('services').select('id, name, price').eq('organization_id', organizationId);
+    const { data: pros } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('organization_id', organizationId)
+        .eq('role', 'professional')
+        .order('full_name', { ascending: true }); // Ordered for stable numbering
+
+    const { data: servs } = await supabase
+        .from('services')
+        .select('id, name, price')
+        .eq('organization_id', organizationId)
+        .order('name', { ascending: true }); // Ordered for stable numbering
 
     const context = `
 Profissionais:
@@ -52,8 +62,44 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
 	`;
 
     // --- HEURISTICS (NLU) START ---
-    // Make a copy of state to apply heuristics before AI sees it
+    // --- NUMERIC SELECTION LOGIC ---
+    // Handle "1", "2" etc based on what we asked last
+    const lastQuestion = stateRow?.last_question_key ?? null;
+    const pickNumber = (incomingText.match(/\b\d+\b/)?.[0] ?? null);
+    const n = pickNumber ? Number(pickNumber) : NaN;
+
     const preAIState = { ...state };
+
+    if (!Number.isNaN(n) && n >= 0) {
+        // Choice: SERVICE
+        if (lastQuestion === "service" && servs?.length) {
+            const picked = servs[n - 1]; // 1-based index
+            if (picked) {
+                console.log(`[Numeric] Selected Service #${n}: ${picked.name}`);
+                preAIState.service_id = picked.id;
+                preAIState.service_name = picked.name;
+                preAIState.service_key = "corte"; // assume generic intent if strict key needed, or leave null
+            }
+        }
+
+        // Choice: PROFESSIONAL
+        if (lastQuestion === "professional" && pros?.length) {
+            if (n === 0) {
+                console.log(`[Numeric] Selected Professional: Any`);
+                preAIState.professional_id = "any";
+                preAIState.professional_name = "Primeiro disponível";
+            } else {
+                const picked = pros[n - 1]; // 1-based index
+                if (picked) {
+                    console.log(`[Numeric] Selected Professional #${n}: ${picked.full_name}`);
+                    preAIState.professional_id = picked.id;
+                    preAIState.professional_name = picked.full_name;
+                }
+            }
+        }
+    }
+    // --- NUMERIC SELECTION END ---
+
     const lowerText = incomingText.toLowerCase();
 
     // --- HEURISTICS (NLU - Robust Semantic Extraction) ---
@@ -132,15 +178,77 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
     // 7. Execute Actions
     const missing = computeMissing(mergedState);
 
+    // --- DETERMINISTIC MENUS (Bypass AI for missing Core Fields) ---
+
+    // Case 1: Missing Service -> List Services
+    if (missing.includes("service")) {
+        const list = (servs ?? [])
+            .map((s, i) => `${i + 1}) ${s.name} (R$${s.price})`)
+            .join("\n");
+
+        const finalReply =
+            `Fechou. Qual serviço você quer?\n\n` +
+            `${list}\n\n` +
+            `Responda com o número (ex: 1).`;
+
+        // Save state + set Context for next turn
+        await supabase.from("booking_state").upsert({
+            conversation_id: conversationId,
+            state: mergedState as any,
+            last_question_key: "service",
+        });
+
+        console.log("[Menu] Asking for Service");
+        return { reply: finalReply, action: "ASK_MISSING" };
+    }
+
+    // Case 2: Missing Professional -> List Professionals
+    if (missing.includes("professional")) {
+        // Optimization: If only 1 pro exists, auto-select
+        if ((pros ?? []).length === 1 && pros![0]) {
+            console.log("[Menu] Auto-selecting single professional");
+            mergedState.professional_id = pros![0].id;
+            mergedState.professional_name = pros![0].full_name;
+            // Don't return, let flow continue to check Date/Time
+            // But we need to update 'missing' array for the next check?
+            // Actually, simplest is to just save and let next turn handle or continue if possible.
+            // For strict correctness, we'll recursively re-compute limits or just fall through content.
+            // Let's just update misses manually to allow fall-through to CREATE_HOLD check below?
+            // No, safest is: save state, return message "Confirmado com X", or just let fall through.
+            // Given flow, let's just fall through to CREATE_HOLD logic but we need to remove 'professional' from missing list.
+            const idx = missing.indexOf('professional');
+            if (idx > -1) missing.splice(idx, 1);
+        } else {
+            const list = (pros ?? [])
+                .map((p, i) => `${i + 1}) ${p.full_name}`)
+                .join("\n");
+
+            const finalReply =
+                `Show. Agora escolhe o profissional:\n\n` +
+                `0) Primeiro disponível\n` +
+                `${list}\n\n` +
+                `Responda com o número (ex: 2).`;
+
+            await supabase.from("booking_state").upsert({
+                conversation_id: conversationId,
+                state: mergedState as any,
+                last_question_key: "professional",
+            });
+
+            console.log("[Menu] Asking for Professional");
+            return { reply: finalReply, action: "ASK_MISSING" };
+        }
+    }
+
     if (ai.next_action === "CREATE_HOLD") {
         // Verify we have enough info
         if (missing.length > 0) {
             console.warn("AI tried to hold without required fields:", missing);
             ai.next_action = "ASK_MISSING";
 
-            // Natural language mapping for missing fields
+            // Natural language mapping for missing fields (only Date/Time left effectively)
             const labels: Record<string, string> = {
-                service: "o serviço (corte, barba...)",
+                service: "o serviço",
                 professional: "o profissional",
                 date: "o dia",
                 time: "o horário"
