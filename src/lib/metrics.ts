@@ -81,10 +81,3 @@ export async function getFinancialMetrics(organizationId: string, professionalId
     }
 }
 
-return {
-    totalRevenue,
-    currentMonthRevenue,
-    percentageChange: percentageChange.toFixed(1),
-    monthAppointments: monthAppointments || 0
-}
-}
