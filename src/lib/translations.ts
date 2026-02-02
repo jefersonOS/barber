@@ -141,7 +141,6 @@ export const translations = {
         "whatsapp.manual_config_help": "Use este botão caso a configuração automática falhe.",
 
         "settings.validation.name": "Nome deve ter pelo menos 2 caracteres.",
-        "settings.validation.name": "Nome deve ter pelo menos 2 caracteres.",
         "settings.placeholder.name": "Minha Barbearia",
         "settings.placeholder.instance": "ID da Instância",
 
