@@ -31,7 +31,11 @@ export function WhatsAppConnection({ organization }: WhatsAppConnectionProps) {
     const [qrCode, setQrCode] = useState<string | null>(null)
 
     const instanceId = organization.whatsapp_instance_id || "user_" + organization.id.split('-')[0]
-    const webhookUrl = `https://barber-saas-api.vercel.app/api/webhook/${organization.id}`
+    const [origin, setOrigin] = useState("")
+    useEffect(() => {
+        setOrigin(window.location.origin)
+    }, [])
+    const webhookUrl = `${origin}/api/webhooks/evolution`
 
     // Fetch initial status
     useEffect(() => {

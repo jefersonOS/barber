@@ -78,7 +78,7 @@ export async function createEvolutionInstance(organizationId: string) {
         // 2. Configure Webhook (Double Shot)
         const host = (await headers()).get('host')
         const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https'
-        const webhookUrl = `${protocol}://${host}/api/webhook/whatsapp`
+        const webhookUrl = `${protocol}://${host}/api/webhooks/evolution`
 
         console.log(`Configuring webhook at: ${baseUrl}/webhook/set/${instanceName}`)
 
@@ -271,7 +271,7 @@ export async function configureEvolutionWebhook(organizationId: string) {
     // 2. Configure Webhook
     const host = (await headers()).get('host')
     const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https'
-    const webhookUrl = `${protocol}://${host}/api/webhook/whatsapp`
+    const webhookUrl = `${protocol}://${host}/api/webhooks/evolution`
 
     console.log(`Configuring webhook manually for: ${instanceName} at ${webhookUrl}`)
 
