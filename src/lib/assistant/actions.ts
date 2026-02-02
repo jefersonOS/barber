@@ -25,8 +25,19 @@ export async function createHoldBooking({
         if (s) serviceId = s.id;
     }
 
+    // Fallback: If no name but we have a KEY (e.g. "corte"), try generic search
+    if (!serviceId && state.service_key) {
+        const query = state.service_key === 'corte' ? '%corte%' : state.service_key === 'barba' ? '%barba%' : '%sobrancelha%';
+        const { data: s } = await supabase.from('services').select('id').ilike('name', query).eq('organization_id', organizationId).limit(1).single();
+        if (s) serviceId = s.id;
+    }
+
     let professionalId = state.professional_id;
-    if (!professionalId && state.professional_name) {
+    if (professionalId === 'any') {
+        // Find first available pro - optimization for "Any"
+        const { data: p } = await supabase.from('profiles').select('id').eq('organization_id', organizationId).eq('role', 'professional').limit(1).single();
+        if (p) professionalId = p.id;
+    } else if (!professionalId && state.professional_name) {
         const { data: p } = await supabase.from('profiles').select('id').ilike('full_name', `%${state.professional_name}%`).eq('organization_id', organizationId).limit(1).single();
         if (p) professionalId = p.id;
     }

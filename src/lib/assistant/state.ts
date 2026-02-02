@@ -67,3 +67,31 @@ export function computeMissing(state: BookingState): string[] {
 
     return missing;
 }
+
+// Validation Strict for CREATE_HOLD (needs real IDs)
+export function computeMissingForHold(state: BookingState): string[] {
+    const missing: string[] = [];
+
+    // HOLD needs real ID
+    if (!state.service_id) missing.push("service_id");
+    // Professional can be "any" or ID
+    if (!state.professional_id) missing.push("professional_id");
+
+    // Strict Date/Time regex or valid string check
+    if (!state.date || !/^\d{4}-\d{2}-\d{2}$/.test(state.date)) missing.push("date");
+    if (!state.time || !/^\d{2}:\d{2}$/.test(state.time)) missing.push("time");
+
+    return missing;
+}
+
+export function normalizeStateUpdates(u: any): Partial<BookingState> {
+    const out = { ...(u ?? {}) };
+
+    if (out.service && !out.service_name) out.service_name = out.service;
+    if (out.professional && !out.professional_name) out.professional_name = out.professional;
+
+    delete (out as any).service;
+    delete (out as any).professional;
+
+    return out;
+}

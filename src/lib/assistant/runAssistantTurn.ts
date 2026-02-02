@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { chatTurn } from "./openaiChatTurn";
-import { applyStateUpdates, computeMissing, BookingState } from "./state";
+import { applyStateUpdates, computeMissing, normalizeStateUpdates, BookingState, computeMissingForHold } from "./state";
 import { createHoldBooking, createStripeCheckout } from "./actions";
 
 export async function runAssistantTurn({
@@ -194,80 +194,125 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
 
     // 5. Apply Updates
     // Merge AI updates on top of Pre-Processed State
-    const mergedState = applyStateUpdates(preAIState, ai.state_updates);
+    const safeUpdates = normalizeStateUpdates(ai.state_updates);
+    const mergedState = applyStateUpdates(preAIState, safeUpdates);
 
     let finalReply = ai.reply; // Initial reply from AI
 
 
     // 7. Execute Actions
-    const missing = computeMissing(mergedState);
 
-    // --- DETERMINISTIC MENUS (Bypass AI for missing Core Fields) ---
+    // PHASE 1: Conversation Flow (Is content "Conversational Enough"?)
+    // Accepts service_key/name/id. Only halts if completely undefined.
+    const missingConversation = computeMissing(mergedState);
 
-    // Case 1: Missing Service -> List Services
-    if (missing.includes("service")) {
+    // If conversation is missing core elements, prioritize ASKING (Human-like)
+    // Don't force technical menus unless we are blocked on HOLD creation later.
+    if (missingConversation.length > 0) {
+
+        // A) Missing Professional -> List Professionals
+        if (missingConversation.includes("professional")) {
+            // Optimization: If only 1 pro exists, auto-select
+            if ((pros ?? []).length === 1 && pros![0]) {
+                console.log("[Menu] Auto-selecting single professional");
+                mergedState.professional_id = pros![0].id;
+                mergedState.professional_name = pros![0].full_name;
+                // Proceed to next check (Date/Time)
+            } else {
+                const list = (pros ?? [])
+                    .map((p, i) => `${i + 1}) ${p.full_name}`)
+                    .join("\n");
+
+                finalReply =
+                    `Show. Agora escolhe o profissional:\n\n` +
+                    `0) Primeiro disponível\n` +
+                    `${list}\n\n` +
+                    `Responda com o número (ex: 2).`;
+
+                await supabase.from("booking_state").upsert({
+                    conversation_id: conversationId,
+                    state: mergedState as any,
+                    last_question_key: "professional",
+                });
+
+                console.log("[Menu] Asking for Professional");
+                return { reply: finalReply, action: "ASK_MISSING" };
+            }
+        }
+
+        // B) Missing Date/Time -> Guided Ask
+        if (missingConversation.includes("date") || missingConversation.includes("time")) {
+            // Fallback to AI reply if it asked naturally, or force specific text
+            // But usually AI asks well. We just ensure we don't skip to HOLD.
+            if (ai.next_action !== "ASK_MISSING") {
+                ai.next_action = "ASK_MISSING";
+                finalReply = "Qual dia e horário você prefere? (ex: terça 16:00)";
+            }
+            // Save state & Return
+            console.log("[Flow] Asking for Date/Time");
+            // Persist at end, just let fall through logic
+        }
+
+        // C) Missing Service DE VERDADE (No Key, No Name, No ID) -> Then List
+        if (missingConversation.includes("service")) {
+            const list = (servs ?? [])
+                .map((s, i) => `${i + 1}) ${s.name} (R$${s.price})`)
+                .join("\n");
+
+            finalReply =
+                `Fechou. Qual serviço você quer?\n\n` +
+                `${list}\n\n` +
+                `Responda com o número (ex: 1).`;
+
+            await supabase.from("booking_state").upsert({
+                conversation_id: conversationId,
+                state: mergedState as any,
+                last_question_key: "service",
+            });
+
+            console.log("[Menu] Asking for Service (Total Missing)");
+            return { reply: finalReply, action: "ASK_MISSING" };
+        }
+    }
+
+
+    // PHASE 2: Action Safety (HOLD Check)
+    // Only tries to create HOLD (or validate strictness) if Conversation flow is satisfied.
+
+    // We only care about strict service_id if we are ABOUT TO HOLD or if AI thinks we are ready.
+    const missingHold = computeMissingForHold(mergedState);
+    const readyToHold = missingHold.length === 0;
+
+    // Logic: If conversation sees we have "service_key" (e.g. "corte"), it passes Phase 1.
+    // But Phase 2 might say: "Hey, I have 'service_key' but no 'service_id'. I can't HOLD yet."
+    // In that specific case, we Trigger the Menu to resolve the ID.
+
+    // If we have "Intent" but no "ID", and we have Date/Time/Pro (so we are at the end) -> Trigger Resolver
+    if (mergedState.service_key && !mergedState.service_id && !missingConversation.includes("date") && !missingConversation.includes("time") && !missingConversation.includes("professional")) {
+        console.log("[Flow] Ready for HOLD but incomplete Service ID. Triggering Menu Resolver.");
+
         const list = (servs ?? [])
             .map((s, i) => `${i + 1}) ${s.name} (R$${s.price})`)
             .join("\n");
 
-        const finalReply =
-            `Fechou. Qual serviço você quer?\n\n` +
+        finalReply =
+            `Para confirmar o agendamento de '${mergedState.service_key}', preciso saber qual opção exata:\n\n` +
             `${list}\n\n` +
             `Responda com o número (ex: 1).`;
 
-        // Save state + set Context for next turn
         await supabase.from("booking_state").upsert({
             conversation_id: conversationId,
             state: mergedState as any,
             last_question_key: "service",
         });
 
-        console.log("[Menu] Asking for Service");
         return { reply: finalReply, action: "ASK_MISSING" };
     }
 
-    // Case 2: Missing Professional -> List Professionals
-    if (missing.includes("professional")) {
-        // Optimization: If only 1 pro exists, auto-select
-        if ((pros ?? []).length === 1 && pros![0]) {
-            console.log("[Menu] Auto-selecting single professional");
-            mergedState.professional_id = pros![0].id;
-            mergedState.professional_name = pros![0].full_name;
-            // Don't return, let flow continue to check Date/Time
-            // But we need to update 'missing' array for the next check?
-            // Actually, simplest is to just save and let next turn handle or continue if possible.
-            // For strict correctness, we'll recursively re-compute limits or just fall through content.
-            // Let's just update misses manually to allow fall-through to CREATE_HOLD check below?
-            // No, safest is: save state, return message "Confirmado com X", or just let fall through.
-            // Given flow, let's just fall through to CREATE_HOLD logic but we need to remove 'professional' from missing list.
-            const idx = missing.indexOf('professional');
-            if (idx > -1) missing.splice(idx, 1);
-        } else {
-            const list = (pros ?? [])
-                .map((p, i) => `${i + 1}) ${p.full_name}`)
-                .join("\n");
-
-            const finalReply =
-                `Show. Agora escolhe o profissional:\n\n` +
-                `0) Primeiro disponível\n` +
-                `${list}\n\n` +
-                `Responda com o número (ex: 2).`;
-
-            await supabase.from("booking_state").upsert({
-                conversation_id: conversationId,
-                state: mergedState as any,
-                last_question_key: "professional",
-            });
-
-            console.log("[Menu] Asking for Professional");
-            return { reply: finalReply, action: "ASK_MISSING" };
-        }
-    }
-
-    if (ai.next_action === "CREATE_HOLD") {
+    if (ai.next_action === "CREATE_HOLD" || (readyToHold && ai.next_action !== "CREATE_PAYMENT")) {
         // Verify we have enough info
-        if (missing.length > 0) {
-            console.warn("AI tried to hold without required fields:", missing);
+        if (missingHold.length > 0) {
+            console.warn("AI tried to hold without required fields:", missingHold);
             ai.next_action = "ASK_MISSING";
 
             // Natural language mapping for missing fields (only Date/Time left effectively)
@@ -277,7 +322,7 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
                 date: "o dia",
                 time: "o horário"
             };
-            const missingText = missing.map(m => labels[m] ?? m).join(' e ');
+            const missingText = missingHold.map(m => labels[m] ?? m).join(' e ');
             finalReply = `Opa, entendi! Para finalizar o agendamento, preciso só confirmar ${missingText}.`;
         } else {
             try {
@@ -357,7 +402,7 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
     await supabase.from("booking_state").upsert({
         conversation_id: conversationId,
         state: mergedState as any,
-        last_question_key: ai.next_action === "ASK_MISSING" ? missing.join(",") : null,
+        last_question_key: ai.next_action === "ASK_MISSING" ? missingConversation.join(",") : null,
     });
 
     // ✅ PERSIST STATE MOVED TO END
