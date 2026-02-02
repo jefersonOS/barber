@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { createClient } from "@/lib/supabase/client"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
+import { useLanguage } from "@/contexts/language-context"
 
 const formSchema = z.object({
     name: z.string().min(2, "Name is required"),
@@ -30,6 +31,7 @@ const formSchema = z.object({
 
 export default function NewServicePage() {
     const router = useRouter()
+    const { t } = useLanguage()
     const [loading, setLoading] = useState(false)
 
     const form = useForm({
@@ -81,12 +83,12 @@ export default function NewServicePage() {
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
                 </Link>
-                <h1 className="text-2xl font-bold tracking-tight">New Service</h1>
+                <h1 className="text-2xl font-bold tracking-tight">{t("service.new.title")}</h1>
             </div>
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Service Details</CardTitle>
+                    <CardTitle>{t("service.details")}</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <Form {...form}>
@@ -96,9 +98,9 @@ export default function NewServicePage() {
                                 name="name"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Service Name</FormLabel>
+                                        <FormLabel>{t("service.name")}</FormLabel>
                                         <FormControl>
-                                            <Input placeholder="Haircut" {...field} />
+                                            <Input placeholder={t("service.placeholder.name")} {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -109,9 +111,9 @@ export default function NewServicePage() {
                                 name="description"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Description</FormLabel>
+                                        <FormLabel>{t("service.description")}</FormLabel>
                                         <FormControl>
-                                            <Textarea placeholder="Detailed description..." {...field} />
+                                            <Textarea placeholder={t("service.placeholder.description")} {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -123,7 +125,7 @@ export default function NewServicePage() {
                                     name="duration_min"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Duration (minutes)</FormLabel>
+                                            <FormLabel>{t("service.duration")}</FormLabel>
                                             <FormControl>
                                                 <Input type="number" {...field} value={field.value as string | number} />
                                             </FormControl>
@@ -136,7 +138,7 @@ export default function NewServicePage() {
                                     name="price"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Price ($)</FormLabel>
+                                            <FormLabel>{t("service.price")}</FormLabel>
                                             <FormControl>
                                                 <Input type="number" step="0.01" {...field} value={field.value as string | number} />
                                             </FormControl>
@@ -146,7 +148,7 @@ export default function NewServicePage() {
                                 />
                             </div>
                             <Button type="submit" className="w-full" disabled={loading}>
-                                {loading ? "Saving..." : "Create Service"}
+                                {loading ? t("service.creating") : t("service.create")}
                             </Button>
                         </form>
                     </Form>

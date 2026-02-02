@@ -141,7 +141,20 @@ export const translations = {
         "whatsapp.manual_config_help": "Use este botão caso a configuração automática falhe.",
 
         "settings.validation.name": "Nome deve ter pelo menos 2 caracteres.",
+        "settings.validation.name": "Nome deve ter pelo menos 2 caracteres.",
         "settings.placeholder.name": "Minha Barbearia",
         "settings.placeholder.instance": "ID da Instância",
+
+        "service.new.title": "Novo Serviço",
+        "service.details": "Detalhes do Serviço",
+        "service.name": "Nome do Serviço",
+        "service.placeholder.name": "Corte de Cabelo",
+        "service.description": "Descrição",
+        "service.placeholder.description": "Descrição detalhada...",
+        "service.duration": "Duração (minutos)",
+        "service.price": "Preço (R$)",
+        "service.create": "Criar Serviço",
+        "service.creating": "Salvando...",
+        "service.success": "Serviço criado com sucesso!",
     }
 }
