@@ -11,38 +11,7 @@ import { useEffect } from "react"
 
 // ... inside component
 
-async function handleConfigureWebhook() {
-    setLoading(true)
-    try {
-        const result = await configureEvolutionWebhook(organization.id)
-        if (result.error) {
-            alert(result.error)
-        } else {
-            alert(t("whatsapp.webhook_configured_success") || "Webhook configured successfully!")
-        }
-    } catch (error) {
-        console.error("Webhook config error:", error)
-        alert(t("common.error"))
-    } finally {
-        setLoading(false)
-    }
-}
 
-// ... inside JXS
-
-                            <div className="pt-2">
-                                <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    className="w-full text-xs bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200"
-                                    onClick={handleConfigureWebhook}
-                                    disabled={loading}
-                                >
-                                    {t("whatsapp.btn.configure")}
-                                </Button>
-                            </div>
-
-                            <p className="text-[10px] text-slate-500 leading-tight">
 
 // ... imports
 
@@ -79,6 +48,23 @@ export function WhatsAppConnection({ organization }: WhatsAppConnectionProps) {
             }
         } catch (error) {
             console.error("Failed to check status", error)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    async function handleConfigureWebhook() {
+        setLoading(true)
+        try {
+            const result = await configureEvolutionWebhook(organization.id)
+            if (result.error) {
+                alert(result.error)
+            } else {
+                alert(t("whatsapp.webhook_configured_success") || "Webhook configured successfully!")
+            }
+        } catch (error) {
+            console.error("Webhook config error:", error)
+            alert(t("common.error"))
         } finally {
             setLoading(false)
         }
@@ -186,9 +172,9 @@ export function WhatsAppConnection({ organization }: WhatsAppConnectionProps) {
                             </div>
 
                             <div className="pt-2">
-                                <Button 
-                                    variant="outline" 
-                                    size="sm" 
+                                <Button
+                                    variant="outline"
+                                    size="sm"
                                     className="w-full text-xs bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200"
                                     onClick={handleConfigureWebhook}
                                     disabled={loading}
