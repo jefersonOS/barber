@@ -22,6 +22,11 @@ Se cliente disse "pode ser", "sim", "combinado", considere CONFIRMADO a última 
 ESTADO ATUAL (O QUE JÁ SABEMOS):
 ${JSON.stringify(state, null, 2)}
 
+REGRA DE OURO (ANTI-ALUCINAÇÃO):
+- O status oficial é o que está no "ESTADO ATUAL" acima.
+- Se "hold_booking_id" for nulo/vazio, NÃO EXISTE RESERVA NO SISTEMA AINDA.
+- Mesmo que o histórico mostre que você disse "agendado", se o ID não estiver aqui, falhou. TENTE NOVAMENTE (CREATE_HOLD).
+
 CONTEXTO EXTRA (HORÁRIOS/PROFISSIONAIS):
 ${context}
 

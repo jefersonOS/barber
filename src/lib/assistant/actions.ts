@@ -31,6 +31,10 @@ export async function createHoldBooking({
         if (p) professionalId = p.id;
     }
 
+    if (!serviceId) throw new Error(`Service not found: ${state.service_name}`);
+    // Professional might be optional depending on business logic, but let's enforce if name was provided
+    if (state.professional_name && !professionalId) throw new Error(`Professional not found: ${state.professional_name}`);
+
     // Default to first service/pro if not found? No, better to fail or hold without ID?
     // Let's create the HOLD anyway with what we have.
 
