@@ -57,8 +57,18 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
     // 5. Apply Updates
     const mergedState = applyStateUpdates(state, ai.state_updates);
 
+    // SANITIZATION: Fix "undefined" strings from AI
+    if (mergedState.service_id === "undefined" || mergedState.service_id === "null" || mergedState.service_id === "") mergedState.service_id = undefined;
+    if (mergedState.service_name === "undefined" || mergedState.service_name === "null") mergedState.service_name = undefined;
+    if (mergedState.professional_id === "undefined" || mergedState.professional_id === "null" || mergedState.professional_id === "") mergedState.professional_id = undefined;
+    if (mergedState.professional_name === "undefined" || mergedState.professional_name === "null") mergedState.professional_name = undefined;
+
     // --- HEURISTICS START ---
     const lowerText = incomingText.toLowerCase();
+
+    console.log("[Heuristic] Input:", lowerText);
+    console.log("[Heuristic] Servs available:", servs?.map(s => s.name));
+
     let heuristicFixedService = false;
 
     // Heuristic: Service
