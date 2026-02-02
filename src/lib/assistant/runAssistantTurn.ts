@@ -68,36 +68,52 @@ export async function runAssistantTurn({
     let finalReply = ai.reply;
 
     // 7. Execute Actions
+    // 7. Execute Actions
+    const missing = computeMissing(mergedState);
+
     if (ai.next_action === "CREATE_HOLD") {
         // Verify we have enough info
-        // if (missing.length === 0) ...
+        if (missing.length > 0) {
+            console.warn("AI tried to hold without required fields:", missing);
+            ai.next_action = "ASK_MISSING";
+            finalReply = `Preciso de mais algumas informações antes de agendar. Faltou: ${missing.map(m => m === 'date' ? 'data' : m === 'time' ? 'horário' : m === 'service' ? 'serviço' : 'profissional').join(', ')}.`;
+        } else {
+            try {
+                const hold = await createHoldBooking({ supabase, conversationId, state: mergedState, organizationId });
+                mergedState.hold_booking_id = hold.bookingId;
 
-        try {
-            const hold = await createHoldBooking({ supabase, conversationId, state: mergedState, organizationId });
-            mergedState.hold_booking_id = hold.bookingId;
+                // Save the ID
+                await supabase.from("booking_state").upsert({
+                    conversation_id: conversationId,
+                    state: mergedState as any
+                });
 
-            // Save the ID
-            await supabase.from("booking_state").upsert({
-                conversation_id: conversationId,
-                state: mergedState as any
-            });
+                // Should we auto-trigger payment?
+                // If tone is "Create hold then ask payment", we might want to do both.
+                // Re-evaluating next step: 
+                // If hold created successfully, we probably want to ask for payment immediately or confirm "Reserva segura, agora pague".
+                // Let's assume flow continues to payment.
 
-            // Should we auto-trigger payment?
-            // If tone is "Create hold then ask payment", we might want to do both.
-            // Re-evaluating next step: 
-            // If hold created successfully, we probably want to ask for payment immediately or confirm "Reserva segura, agora pague".
-            // Let's assume flow continues to payment.
-
-            // If we want to chain actions:
-            /* 
-            const checkout = await createStripeCheckout({ supabase, bookingId: hold.bookingId, state: mergedState });
-            finalReply += `\n\nReserva iniciada! Para confirmar, faça o pagamento do sinal aqui: ${checkout.url}`;
-            */
-            finalReply += "\n\nPré-reserva realizada! Vou gerar o link de pagamento...";
-            // Force next implementation logic if we want auto-link
-        } catch (e) {
-            console.error("Failed to create hold", e);
-            finalReply = "Tive um erro ao tentar reservar no sistema. Pode tentar novamente em instantes?";
+                // If we want to chain actions:
+                /* 
+                const checkout = await createStripeCheckout({ supabase, bookingId: hold.bookingId, state: mergedState });
+                finalReply += `\n\nReserva iniciada! Para confirmar, faça o pagamento do sinal aqui: ${checkout.url}`;
+                */
+                finalReply += "\n\nPré-reserva realizada! Vou gerar o link de pagamento...";
+                // Force next implementation logic if we want auto-link
+            } catch (e: any) {
+                console.error("Failed to create hold", e);
+                // Catch specific errors from actions.ts
+                if (e.message.includes("Service not found")) {
+                    finalReply = "Não encontrei esse serviço no sistema. Qual seria o nome exato?";
+                    ai.next_action = "ASK_MISSING"; // Force ask again
+                } else if (e.message.includes("Professional not found")) {
+                    finalReply = "Não encontrei esse profissional. Tem preferência por outro?";
+                    ai.next_action = "ASK_MISSING";
+                } else {
+                    finalReply = "Tive um erro técnico ao reservar. Pode tentar novamente?";
+                }
+            }
         }
     }
 
