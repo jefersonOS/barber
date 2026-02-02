@@ -3,13 +3,16 @@
 import { createClient } from "@/lib/supabase/server"
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 
-// Need admin client to verify token without RLS issues and create user
-const supabaseAdmin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+// Helper to get admin client
+function getAdminClient() {
+    return createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+}
 
 export async function getInvite(token: string) {
+    const supabaseAdmin = getAdminClient()
     const { data, error } = await supabaseAdmin
         .from('professional_invites')
         .select('*, organizations(name)')
@@ -22,6 +25,7 @@ export async function getInvite(token: string) {
 }
 
 export async function acceptInvite(token: string, email: string, password: string, name: string) {
+    const supabaseAdmin = getAdminClient()
     // 1. Validate Invite
     const invite = await getInvite(token)
     if (!invite) return { error: "Convite inválido ou expirado." }
