@@ -103,8 +103,29 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
     const lowerText = incomingText.toLowerCase();
 
     // --- HEURISTICS (NLU - Robust Semantic Extraction) ---
-    // 1. Service Extraction
+    // 1. Service Extraction - Fuzzy Logic
     const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    function tokens(s: string) { return normalize(s).split(/\s+/).filter(Boolean); }
+    function scoreMatch(query: string, candidate: string) {
+        const q = new Set(tokens(query));
+        const c = new Set(tokens(candidate));
+        let score = 0;
+        for (const t of q) if (c.has(t)) score += 2;
+        if (normalize(candidate).includes(normalize(query))) score += 3;
+        if (normalize(query).includes(normalize(candidate))) score += 1;
+        return score;
+    }
+    function resolveService(servs: { id: string; name: string }[], query: string) {
+        let best: { id: string; name: string } | null = null;
+        let bestScore = 0;
+        for (const s of servs) {
+            const sc = scoreMatch(query, s.name);
+            if (sc > bestScore) { bestScore = sc; best = s; }
+        }
+        if (best && bestScore >= 2) return best;
+        return null;
+    }
+
     const t = normalize(incomingText);
 
     let detectedKey: BookingState['service_key'] = null;
@@ -112,29 +133,32 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
     if (t.includes("corte") || t.includes("cortar") || t.includes("cabelo") || t.includes("cabeleira")) detectedKey = "corte";
     else if (t.includes("barba") || t.includes("bigode") || t.includes("fazer a barba")) detectedKey = "barba";
     else if (t.includes("sobrancelha")) detectedKey = "sobrancelha";
-    else if (t.includes("pezinho") || t.includes("acabamento")) detectedKey = "corte"; // map to corte usually
+    else if (t.includes("pezinho") || t.includes("acabamento")) detectedKey = "corte";
 
     if (detectedKey) {
         console.log(`[Heuristic] Detected Intent Key: ${detectedKey}`);
         preAIState.service_key = detectedKey;
 
-        // Try to resolve key -> ID immediately using fuzzy matching against catalog
-        // Only if ID is missing
+        // Try to resolve key -> ID using Fuzzy Matcher
         if (!preAIState.service_id && servs) {
-            let found = null;
-            if (detectedKey === 'corte') found = servs.find(s => {
-                const sn = normalize(s.name);
-                return sn.includes("corte") || sn.includes("cabelo") || sn.includes("masculino");
-            });
-            else if (detectedKey === 'barba') found = servs.find(s => normalize(s.name).includes("barba"));
-            else if (detectedKey === 'sobrancelha') found = servs.find(s => normalize(s.name).includes("sobrancelha"));
+            const query = `${incomingText} ${detectedKey}`; // Combine input + intent for better match
+            const found = resolveService(servs, query);
 
             if (found) {
                 console.log(`[Heuristic] Resolved Key '${detectedKey}' to Service: ${found.name} (${found.id})`);
                 preAIState.service_id = found.id;
                 preAIState.service_name = found.name;
             } else {
-                console.warn(`[Heuristic] Could not resolve key '${detectedKey}' to any service in catalog. Will rely on key.`);
+                console.warn(`[Heuristic] Could not resolve key '${detectedKey}' to any service (Fuzzy Score too low). Will fallback or Ask.`);
+                // 3) Strict Fallback: "corte" always maps to something with "corte" if standard resolver failed
+                if (detectedKey === 'corte') {
+                    const fallback = servs.find(s => normalize(s.name).includes("corte"));
+                    if (fallback) {
+                        console.log(`[Heuristic] Fallback service for 'corte': ${fallback.name}`);
+                        preAIState.service_id = fallback.id;
+                        preAIState.service_name = fallback.name;
+                    }
+                }
             }
         }
     }
@@ -279,8 +303,25 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
                 console.error("Failed to create hold", e);
                 // Catch specific errors from actions.ts
                 if (e.message.includes("Service not found")) {
-                    finalReply = "Não encontrei esse serviço no sistema. Qual seria o nome exato?";
-                    ai.next_action = "ASK_MISSING"; // Force ask again
+                    const list = (servs ?? [])
+                        .map((s, i) => `${i + 1}) ${s.name} (R$${s.price})`)
+                        .join("\n");
+
+                    finalReply =
+                        `Não consegui identificar o serviço com certeza 😅\n` +
+                        `Me diz qual é, escolhendo na lista:\n\n` +
+                        `${list}\n\n` +
+                        `Responda com o número (ex: 1).`;
+
+                    ai.next_action = "ASK_MISSING";
+
+                    // salva que a última pergunta foi service (pra interpretar "1", "2", etc)
+                    await supabase.from("booking_state").upsert({
+                        conversation_id: conversationId,
+                        state: mergedState as any,
+                        last_question_key: "service",
+                    });
+
                 } else if (e.message.includes("Professional not found")) {
                     finalReply = "Não encontrei esse profissional. Tem preferência por outro?";
                     ai.next_action = "ASK_MISSING";

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { runAssistantTurn } from "@/lib/assistant/runAssistantTurn";
 import { EvolutionClient } from "@/lib/evolution/client";
+import { transcribeAudio } from "@/lib/assistant/transcription";
 
 export const runtime = "nodejs";
 
@@ -24,7 +25,55 @@ export async function POST(req: Request) {
         }
 
         const phone = key.remoteJid; // e.g., 551199999999@s.whatsapp.net
-        const body = data.message?.conversation || data.message?.extendedTextMessage?.text;
+        let body = data.message?.conversation || data.message?.extendedTextMessage?.text;
+
+        // --- AUDIO HANDLING ---
+        if (!body && data.message?.audioMessage) {
+            console.log("[Webhook] Processing Audio Message...");
+            const audio = data.message.audioMessage;
+            let buffer: Buffer | null = null;
+
+            // 1. Try Base64 from payload (if enabled in Evolution utils)
+            // Evolution v2 might put it in data.base64 or message.audioMessage.base64 depending on version/config
+            const potentialBase64 = data.base64 || audio.base64;
+
+            if (potentialBase64) {
+                buffer = Buffer.from(potentialBase64, 'base64');
+            } else if (audio.url) {
+                // 2. Fetch from URL
+                try {
+                    // Start fetching - depending on instance privacy, might need headers
+                    // Ensure we have API Key just in case Evolution requires it for media download (usually yes)
+                    const headers: HeadersInit = {};
+                    if (process.env.EVOLUTION_API_KEY) {
+                        headers['apikey'] = process.env.EVOLUTION_API_KEY;
+                    }
+
+                    const res = await fetch(audio.url, { headers });
+                    if (res.ok) {
+                        const ab = await res.arrayBuffer();
+                        buffer = Buffer.from(ab);
+                    } else {
+                        console.error(`[Audio] Failed to fetch media from URL: ${res.status}`);
+                    }
+                } catch (e) {
+                    console.error("[Audio] Fetch error:", e);
+                }
+            }
+
+            if (buffer) {
+                const text = await transcribeAudio(buffer);
+                if (text) {
+                    console.log(`[Audio] Transcribed: "${text}"`);
+                    body = text; // Just the text, clean.
+                } else {
+                    body = "(Áudio inaudível)";
+                }
+            } else {
+                body = "(Erro ao baixar áudio)";
+            }
+        }
+        // --- AUDIO HANDLING END ---
         const providerMessageId = key.id;
         const instanceId = payload.instance || payload.sender;
 
