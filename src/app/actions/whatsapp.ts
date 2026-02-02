@@ -242,8 +242,83 @@ export async function deleteEvolutionInstance(organizationId: string) {
 
         return { success: true }
 
+        // ...existing code...
     } catch (error) {
         console.error("Evolution Delete Error:", error)
         return { error: "Failed to disconnect." }
+    }
+}
+
+export async function configureEvolutionWebhook(organizationId: string) {
+    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
+        return { error: "Evolution API configuration missing." }
+    }
+
+    const supabase = await createClient()
+
+    // 1. Get Instance ID
+    const { data: org } = await supabase.from('organizations').select('whatsapp_instance_id').eq('id', organizationId).single()
+
+    if (!org?.whatsapp_instance_id) {
+        return { error: "No instance found for this organization." }
+    }
+
+    const instanceName = org.whatsapp_instance_id
+    const baseUrl = EVOLUTION_API_URL.replace(/\/manager\/?$/, '').replace(/\/$/, '')
+
+    // 2. Configure Webhook
+    const host = (await headers()).get('host')
+    const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https'
+    const webhookUrl = `${protocol}://${host}/api/webhook/whatsapp`
+
+    console.log(`Configuring webhook manually for: ${instanceName} at ${webhookUrl}`)
+
+    const webhookPayload = {
+        enabled: true,
+        url: webhookUrl,
+        webhookByEvents: false,
+        webhookBase64: true,
+        events: [
+            "MESSAGES_UPSERT",
+            "MESSAGES_UPDATE",
+            "SEND_MESSAGE_UPDATE",
+            "CONNECTION_UPDATE",
+            "QRCODE_UPDATED"
+        ],
+        webhook: {
+            enabled: true,
+            url: webhookUrl,
+            webhookByEvents: false,
+            webhookBase64: true,
+            events: [
+                "MESSAGES_UPSERT",
+                "MESSAGES_UPDATE",
+                "SEND_MESSAGE_UPDATE",
+                "CONNECTION_UPDATE",
+                "QRCODE_UPDATED"
+            ]
+        }
+    }
+
+    try {
+        const webhookRes = await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': EVOLUTION_API_KEY
+            },
+            body: JSON.stringify(webhookPayload)
+        })
+
+        if (!webhookRes.ok) {
+            const errorText = await webhookRes.text()
+            console.error("Evolution Webhook Manual Config Error:", errorText)
+            return { error: `Failed to configure webhook: ${errorText}` }
+        }
+
+        return { success: true }
+    } catch (error) {
+        console.error("Evolution Webhook Manual Config Exception:", error)
+        return { error: "Internal Error configuring webhook." }
     }
 }
