@@ -89,19 +89,61 @@ export async function createStripeCheckout({
     bookingId: string;
     state: BookingState;
 }) {
-    // Check if stripe is configured, if not return mock link for dev
-    if (!process.env.STRIPE_SECRET_KEY) {
-        return {
-            sessionId: "mock_session_" + Date.now(),
-            url: `https://mock-payment.com/pay/${bookingId}`
-        };
+    // Import stripe client
+    const { stripe } = await import("@/lib/stripe/client");
+
+    // Fetch booking details to get service price
+    const { data: booking, error: bookingError } = await supabase
+        .from('bookings')
+        .select(`
+            id,
+            organization_id,
+            client_name,
+            services(name, price),
+            organizations(name)
+        `)
+        .eq('id', bookingId)
+        .single();
+
+    if (bookingError || !booking) {
+        throw new Error(`Booking not found: ${bookingId}`);
     }
 
-    // Real implementation would go here
-    // const session = await stripe.checkout.sessions.create(...)
+    const service = Array.isArray(booking.services) ? booking.services[0] : booking.services;
+    const organization = Array.isArray(booking.organizations) ? booking.organizations[0] : booking.organizations;
+
+    if (!service || !service.price) {
+        throw new Error('Service or price not found');
+    }
+
+    // Create Stripe checkout session
+    const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'], // Add 'pix' when available in your Stripe account
+        line_items: [
+            {
+                price_data: {
+                    currency: 'brl',
+                    product_data: {
+                        name: service.name,
+                        description: `Agendamento com ${organization?.name || 'Barbearia'}`,
+                    },
+                    unit_amount: Math.round(Number(service.price) * 100), // Convert to cents
+                },
+                quantity: 1,
+            },
+        ],
+        mode: 'payment',
+        success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/booking/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/booking/cancel`,
+        metadata: {
+            booking_id: bookingId,
+            organization_id: booking.organization_id,
+            client_name: state.client_name || 'Cliente',
+        },
+    });
 
     return {
-        sessionId: "mock_session_" + Date.now(),
-        url: `https://mock-payment.com/pay/${bookingId}`
+        sessionId: session.id,
+        url: session.url!,
     };
 }
