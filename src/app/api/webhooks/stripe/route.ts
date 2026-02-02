@@ -55,12 +55,16 @@ export async function POST(req: Request) {
                 .eq("id", bookingId)
                 .single();
 
-            if (booking && booking.organizations?.whatsapp_instance_id) {
+            const org = Array.isArray(booking?.organizations) ? booking.organizations[0] : booking?.organizations;
+            const service = Array.isArray(booking?.services) ? booking.services[0] : booking?.services;
+            const profile = Array.isArray(booking?.profiles) ? booking.profiles[0] : booking?.profiles;
+
+            if (booking && org?.whatsapp_instance_id) {
                 const evo = new EvolutionClient();
                 const dateStr = new Date(booking.start_time).toLocaleString("pt-BR");
-                const msg = `✅ Pagamento confirmado, ${booking.client_name}!\n\nSeu agendamento para *${booking.services?.name}* com *${booking.profiles?.full_name}* em *${dateStr}* está garantido.`;
+                const msg = `✅ Pagamento confirmado, ${booking.client_name}!\n\nSeu agendamento para *${service?.name}* com *${profile?.full_name}* em *${dateStr}* está garantido.`;
 
-                await evo.sendText(booking.organizations.whatsapp_instance_id, booking.client_phone, msg);
+                await evo.sendText(org.whatsapp_instance_id, booking.client_phone, msg);
             }
         }
     }
