@@ -152,11 +152,7 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
                 const hold = await createHoldBooking({ supabase, conversationId, state: mergedState, organizationId });
                 mergedState.hold_booking_id = hold.bookingId;
 
-                // Save the ID
-                await supabase.from("booking_state").upsert({
-                    conversation_id: conversationId,
-                    state: mergedState as any
-                });
+                // Save the ID -> DELETED (Will save at end)
 
                 // Should we auto-trigger payment?
                 // If tone is "Create hold then ask payment", we might want to do both.
@@ -193,10 +189,7 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
                 const checkout = await createStripeCheckout({ supabase, bookingId: mergedState.hold_booking_id, state: mergedState });
                 mergedState.payment_id = checkout.sessionId; // Store session
 
-                await supabase.from("booking_state").upsert({
-                    conversation_id: conversationId,
-                    state: mergedState as any
-                });
+                // Store session -> DELETED (Will save at end)
 
                 finalReply += `\n\n🔗 Link para pagamento: ${checkout.url}\n(Assim que pagar, eu confirmo aqui!)`;
             } catch (e) {
@@ -208,6 +201,17 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
             finalReply += "\n(Ops, preciso criar a reserva antes de gerar pagamento. Vamos confirmar os dados?)";
         }
     }
+
+    // --- FINAL SAVE (Single Source of Truth) ---
+    console.log("[StateToSave]", JSON.stringify(mergedState));
+
+    await supabase.from("booking_state").upsert({
+        conversation_id: conversationId,
+        state: mergedState as any,
+        last_question_key: ai.next_action === "ASK_MISSING" ? missing.join(",") : null,
+    });
+
+    // ✅ PERSIST STATE MOVED TO END
 
     return {
         reply: finalReply,
