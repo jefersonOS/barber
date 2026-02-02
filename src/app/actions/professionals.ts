@@ -20,10 +20,16 @@ export async function inviteProfessional(name: string, phone: string) {
     const token = randomBytes(20).toString('hex')
 
     // 3. Create Invite Record
+    // Format phone number (Assume Brazil 55 if length is 10 or 11)
+    let formattedPhone = phone.replace(/\D/g, "")
+    if (formattedPhone.length === 10 || formattedPhone.length === 11) {
+        formattedPhone = `55${formattedPhone}`
+    }
+
     const { error } = await supabase.from('professional_invites').insert({
         organization_id: profile.organization_id,
         name,
-        phone,
+        phone: formattedPhone,
         token,
         status: 'pending'
     })
@@ -47,7 +53,7 @@ export async function inviteProfessional(name: string, phone: string) {
         const message = `👋 Olá ${name}!\n\n💈 Você foi convidado para se juntar à equipe da **${org.name}**.\n\nPara concluir seu cadastro e acessar sua agenda, clique no link abaixo:\n👉 ${inviteLink}\n\nBem-vindo ao time!`
 
         try {
-            await evo.sendText(org.whatsapp_instance_id, phone, message)
+            await evo.sendText(org.whatsapp_instance_id, formattedPhone, message)
         } catch (e) {
             console.error("Failed to send invite via WhatsApp", e)
             return { warning: "Convite criado, mas falha ao enviar WhatsApp. Copie o link manualmente.", inviteLink }
