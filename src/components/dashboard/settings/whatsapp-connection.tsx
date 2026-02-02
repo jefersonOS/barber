@@ -157,7 +157,7 @@ export function WhatsAppConnection({ organization }: WhatsAppConnectionProps) {
                     </Button>
 
                     <Button
-                        onClick={handleConnect}
+                        onClick={status === 'connected' ? handleDisconnect : handleConnect}
                         disabled={loading}
                         className={status === 'connected' ? "bg-red-600 hover:bg-red-700" : "bg-amber-500 hover:bg-amber-600"}
                     >

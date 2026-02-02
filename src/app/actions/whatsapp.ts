@@ -189,8 +189,63 @@ export async function getEvolutionConnectionStatus(instanceId: string) {
             return { status: 'disconnected', state: state }
         }
 
+        // ...existing code...
     } catch (error) {
         console.error("Evolution Status Check Error:", error)
         return { status: 'disconnected', error: "Failed to check status" }
+    }
+}
+
+export async function deleteEvolutionInstance(organizationId: string) {
+    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
+        return { error: "Evolution API configuration missing." }
+    }
+
+    const supabase = await createClient()
+
+    // 1. Get Instance ID
+    const { data: org } = await supabase.from('organizations').select('whatsapp_instance_id').eq('id', organizationId).single()
+
+    if (!org?.whatsapp_instance_id) {
+        return { error: "No instance found for this organization." }
+    }
+
+    const instanceName = org.whatsapp_instance_id
+    const baseUrl = EVOLUTION_API_URL.replace(/\/manager\/?$/, '').replace(/\/$/, '')
+
+    try {
+        // 2. Logout (optional but good practice)
+        await fetch(`${baseUrl}/instance/logout/${instanceName}`, {
+            method: 'DELETE',
+            headers: { 'apikey': EVOLUTION_API_KEY }
+        })
+
+        // 3. Delete Instance
+        const deleteRes = await fetch(`${baseUrl}/instance/delete/${instanceName}`, {
+            method: 'DELETE',
+            headers: { 'apikey': EVOLUTION_API_KEY }
+        })
+
+        if (!deleteRes.ok) {
+            // Even if it fails, we might want to clear DB if it was 404 (already gone).
+            // But let's log it.
+            console.warn("Delete instance failed or already deleted:", await deleteRes.text())
+        }
+
+        // 4. Update DB
+        const { error: dbError } = await supabase
+            .from('organizations')
+            .update({ whatsapp_instance_id: null })
+            .eq('id', organizationId)
+
+        if (dbError) {
+            return { error: "Failed to clear instance from database." }
+        }
+
+        return { success: true }
+
+    } catch (error) {
+        console.error("Evolution Delete Error:", error)
+        return { error: "Failed to disconnect." }
     }
 }
