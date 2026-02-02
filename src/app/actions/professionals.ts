@@ -42,9 +42,20 @@ export async function inviteProfessional(name: string, phone: string) {
     // 4. Send WhatsApp Message
     if (org.whatsapp_instance_id) {
         const evo = new EvolutionClient()
-        // Determine Public URL (use existing env or default to localhost for dev / vercel for prod)
-        // Ideally should be set in .env
-        const publicUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"
+        // Determine Public URL
+        // Prioritize NEXT_PUBLIC_APP_URL if set (Production Domain)
+        // Fallback to VERCEL_URL (Preview/Deployment Domain)
+        // Fallback to localhost
+
+        let publicUrl = process.env.NEXT_PUBLIC_APP_URL
+
+        if (!publicUrl && process.env.VERCEL_URL) {
+            publicUrl = `https://${process.env.VERCEL_URL}`
+        }
+
+        if (!publicUrl) {
+            publicUrl = "http://localhost:3000"
+        }
 
         // Clean URL to ensure valid link
         const baseUrl = publicUrl.startsWith('http') ? publicUrl : `https://${publicUrl}`
@@ -59,7 +70,8 @@ export async function inviteProfessional(name: string, phone: string) {
             return { warning: "Convite criado, mas falha ao enviar WhatsApp. Copie o link manualmente.", inviteLink }
         }
     } else {
-        return { warning: "Instância WhatsApp não configurada. Copie o link.", inviteLink: `${process.env.NEXT_PUBLIC_APP_URL}/invite/${token}` }
+        const publicUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")
+        return { warning: "Instância WhatsApp não configurada. Copie o link.", inviteLink: `${publicUrl}/invite/${token}` }
     }
 
     return { success: true }
