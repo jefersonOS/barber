@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server"
 import OpenAI from "openai"
 import { ChatCompletionMessageParam } from "openai/resources/index" // removed .mjs
 import { addMinutes, parseISO, startOfDay, endOfDay } from "date-fns" // removed format, isWithinInterval
+import { EvolutionClient } from "@/lib/evolution/client"
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
