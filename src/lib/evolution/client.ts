@@ -3,7 +3,8 @@ export class EvolutionClient {
     private apiKey: string
 
     constructor() {
-        this.baseUrl = process.env.EVOLUTION_API_URL || ''
+        const rawUrl = process.env.EVOLUTION_API_URL || ''
+        this.baseUrl = rawUrl.replace(/\/manager\/?$/, '').replace(/\/$/, '')
         this.apiKey = process.env.EVOLUTION_API_KEY || ''
     }
 
