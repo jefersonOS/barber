@@ -418,26 +418,36 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
                             : true;
             });
 
-            const options = candidates.length ? candidates : (servs ?? []);
-            const list = options
-                .map((s, i) => `${i + 1}) ${s.name} (R$${s.price})`)
-                .join("\n");
+            // [OPTIMIZATION] Auto-select if only 1 option matches the intent
+            if (candidates.length === 1) {
+                const best = candidates[0];
+                console.log(`[Router] Auto-selecting single matching service: ${best.name}`);
+                mergedState.service_id = best.id;
+                mergedState.service_name = best.name;
 
-            finalReply =
-                `Pra confirmar no sistema, escolhe a opção exata de *${key ?? "serviço"}*:\n\n` +
-                `${list}\n\n` +
-                `Responda com o número (ex: 1).`;
+                // Continue flow -> Will hit CREATE_HOLD check below
+            } else {
+                const options = candidates.length ? candidates : (servs ?? []);
+                const list = options
+                    .map((s, i) => `${i + 1}) ${s.name} (R$${s.price})`)
+                    .join("\n");
 
-            // Save options for numeric selection
-            mergedState.last_offer = { ...mergedState.last_offer, service_options: options.map(s => s.id) };
+                finalReply =
+                    `Pra confirmar no sistema, escolhe a opção exata de *${key ?? "serviço"}*:\n\n` +
+                    `${list}\n\n` +
+                    `Responda com o número (ex: 1).`;
 
-            await supabase.from("booking_state").upsert({
-                conversation_id: conversationId,
-                state: mergedState as any,
-                last_question_key: "service",
-            });
+                // Save options for numeric selection
+                mergedState.last_offer = { ...mergedState.last_offer, service_options: options.map(s => s.id) };
 
-            return { reply: finalReply, action: "ASK_MISSING" };
+                await supabase.from("booking_state").upsert({
+                    conversation_id: conversationId,
+                    state: mergedState as any,
+                    last_question_key: "service",
+                });
+
+                return { reply: finalReply, action: "ASK_MISSING" };
+            }
         }
     }
 
