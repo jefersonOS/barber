@@ -310,6 +310,45 @@ Horários de Funcionamento:
                     else if (fnName === "confirm_booking") {
                         const { error } = await supabase.from('appointments').update({ status: 'confirmed' }).eq('id', args.booking_id)
                         if (error) throw error
+
+                        // Notification Logic
+                        try {
+                            // 1. Get Appointment Details
+                            const { data: apt } = await supabase.from('appointments').select('*, profiles(full_name, phone), services(name)').eq('id', args.booking_id).single()
+
+                            if (apt) {
+                                const evo = new EvolutionClient()
+                                const instanceId = org.whatsapp_instance_id
+
+                                if (instanceId) {
+                                    const messageToPro = `🔔 *Novo Agendamento Confirmado!* 🔔\n\nCliente: ${apt.client_name}\nServiço: ${apt.services?.name}\nData: ${new Date(apt.start_time).toLocaleString('pt-BR')}`
+                                    const messageToOwner = `💰 *Agendamento Confirmado e Pago!* 💰\n\nProfissional: ${apt.profiles?.full_name}\nCliente: ${apt.client_name}\nServiço: ${apt.services?.name}\nValor: R$ ${apt.services?.price || '?'}\nHorário: ${new Date(apt.start_time).toLocaleString('pt-BR')}`
+
+                                    // 2. Notify Professional
+                                    if (apt.profiles?.phone) {
+                                        await evo.sendText(instanceId, apt.profiles.phone, messageToPro)
+                                    }
+
+                                    // 3. Notify Owner (Find owner profile)
+                                    const { data: owners } = await supabase.from('profiles')
+                                        .select('phone')
+                                        .eq('organization_id', organizationId)
+                                        .eq('role', 'owner')
+
+                                    if (owners && owners.length > 0) {
+                                        for (const owner of owners) {
+                                            if (owner.phone) {
+                                                await evo.sendText(instanceId, owner.phone, messageToOwner)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (notifyError) {
+                            console.error("Failed to send notifications:", notifyError)
+                            // Don't fail the tool execution just because notification failed
+                        }
+
                         toolResult = JSON.stringify({ success: true, status: "confirmed" })
                     }
                     else {
