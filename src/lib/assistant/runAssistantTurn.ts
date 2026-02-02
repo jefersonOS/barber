@@ -418,6 +418,8 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
                             : true;
             });
 
+            console.log(`[Router] Filtered candidates for key '${key}': ${candidates.map(c => c.name).join(", ")}`);
+
             // [OPTIMIZATION] Auto-select if only 1 option matches the intent
             if (candidates.length === 1) {
                 const best = candidates[0];
