@@ -51,34 +51,27 @@ Serviços:
 ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
 	`;
 
-    // 4. Run AI Turn
-    const ai = await chatTurn({ state, history, incomingText, context });
-
-    // 5. Apply Updates
-    const mergedState = applyStateUpdates(state, ai.state_updates);
-
-    // SANITIZATION: Fix "undefined" strings from AI
-    if (mergedState.service_id === "undefined" || mergedState.service_id === "null" || mergedState.service_id === "") mergedState.service_id = undefined;
-    if (mergedState.service_name === "undefined" || mergedState.service_name === "null") mergedState.service_name = undefined;
-    if (mergedState.professional_id === "undefined" || mergedState.professional_id === "null" || mergedState.professional_id === "") mergedState.professional_id = undefined;
-    if (mergedState.professional_name === "undefined" || mergedState.professional_name === "null") mergedState.professional_name = undefined;
-
-    // --- HEURISTICS START ---
+    // --- HEURISTICS (NLU) START ---
+    // Make a copy of state to apply heuristics before AI sees it
+    const preAIState = { ...state };
     const lowerText = incomingText.toLowerCase();
 
-    console.log("[Heuristic] Input:", lowerText);
-    console.log("[Heuristic] Servs available:", servs?.map(s => s.name));
-
-    let heuristicFixedService = false;
+    // Sanitize incoming state artifacts if any (though state comes from DB)
+    // But helpful if DB has garbage
+    if (preAIState.service_id === "undefined" || preAIState.service_id === "null") preAIState.service_id = undefined;
+    if (preAIState.service_name === "undefined" || preAIState.service_name === "null") preAIState.service_name = undefined;
 
     // Heuristic: Service
-    if (!mergedState.service_id && servs) {
+    if (!preAIState.service_id && servs) {
         const keywords = [
             { terms: ['corte', 'cortar', 'corta', 'cabelo', 'cabeleira'], match: 'corte' },
             { terms: ['barba', 'fazer a barba', 'bigode'], match: 'barba' },
             { terms: ['sobrancelha'], match: 'sobrancelha' },
             { terms: ['pezinho', 'acabamento'], match: 'acabamento' }
         ];
+
+        console.log("[Heuristic] Org ID:", organizationId);
+        console.log("[Heuristic] Input:", lowerText);
 
         let found = servs.find(s => lowerText.includes(s.name.toLowerCase()));
         if (!found) {
@@ -92,14 +85,13 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
 
         if (found) {
             console.log(`[Heuristic] Matched service: ${found.name}`);
-            mergedState.service_name = found.name;
-            mergedState.service_id = found.id;
-            heuristicFixedService = true;
+            preAIState.service_name = found.name;
+            preAIState.service_id = found.id;
         }
     }
 
     // Heuristic: Professional
-    if (!mergedState.professional_id && !mergedState.professional_name && pros) {
+    if (!preAIState.professional_id && pros) {
         const foundPro = pros.find(p => {
             const firstName = p.full_name.split(' ')[0].toLowerCase();
             return lowerText.includes(firstName) && firstName.length > 2;
@@ -107,32 +99,24 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
 
         if (foundPro) {
             console.log(`[Heuristic] Matched pro: ${foundPro.full_name}`);
-            mergedState.professional_name = foundPro.full_name;
-            mergedState.professional_id = foundPro.id;
+            preAIState.professional_name = foundPro.full_name;
+            preAIState.professional_id = foundPro.id;
         }
     }
     // --- HEURISTICS END ---
 
-    // 6. Save State
-    await supabase.from("booking_state").upsert({
-        conversation_id: conversationId,
-        state: mergedState as any,
-        last_question_key: ai.next_action === "ASK_MISSING" ? "ASK_MISSING" : null,
-    });
+    // 4. Run AI Turn (With Pre-Processed State)
+    const ai = await chatTurn({ state: preAIState, history, incomingText, context });
 
-    let finalReply = ai.reply;
+    // 5. Apply Updates
+    // Merge AI updates on top of Pre-Processed State
+    const mergedState = applyStateUpdates(preAIState, ai.state_updates);
+
+    let finalReply = ai.reply; // Initial reply from AI
+
 
     // 7. Execute Actions
     const missing = computeMissing(mergedState);
-
-    // Override AI action if heuristics filled the gaps
-    if (missing.length === 0 && ai.next_action === 'ASK_MISSING') {
-        ai.next_action = 'CREATE_HOLD';
-        finalReply = "Perfeito!";
-    } else if (heuristicFixedService && missing.length > 0) {
-        const missingText = missing.map(m => m === 'date' ? 'do dia' : m === 'time' ? 'do horário' : m === 'professional' ? 'de qual profissional' : m).join(' e ');
-        finalReply = `Entendido, ${mergedState.service_name}. Para agendar, preciso agora saber ${missingText}.`;
-    }
 
     if (ai.next_action === "CREATE_HOLD") {
         // Verify we have enough info
