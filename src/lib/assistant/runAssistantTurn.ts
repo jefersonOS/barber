@@ -61,34 +61,53 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
     if (preAIState.service_id === "undefined" || preAIState.service_id === "null") preAIState.service_id = undefined;
     if (preAIState.service_name === "undefined" || preAIState.service_name === "null") preAIState.service_name = undefined;
 
-    // Heuristic: Service
-    if (!preAIState.service_id && servs) {
-        const keywords = [
-            { terms: ['corte', 'cortar', 'corta', 'cabelo', 'cabeleira'], match: 'corte' },
-            { terms: ['barba', 'fazer a barba', 'bigode'], match: 'barba' },
-            { terms: ['sobrancelha'], match: 'sobrancelha' },
-            { terms: ['pezinho', 'acabamento'], match: 'acabamento' }
-        ];
+    // --- HEURISTICS (NLU - Robust Semantic Extraction) ---
+    // 1. Service Extraction
+    const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    const t = normalize(incomingText);
 
-        console.log("[Heuristic] Org ID:", organizationId);
-        console.log("[Heuristic] Input:", lowerText);
+    let detectedKey: BookingState['service_key'] = null;
 
-        let found = servs.find(s => lowerText.includes(s.name.toLowerCase()));
-        if (!found) {
-            for (const k of keywords) {
-                if (k.terms.some(t => lowerText.includes(t))) {
-                    found = servs.find(s => s.name.toLowerCase().includes(k.match));
-                    if (found) break;
-                }
+    if (t.includes("corte") || t.includes("cortar") || t.includes("cabelo") || t.includes("cabeleira")) detectedKey = "corte";
+    else if (t.includes("barba") || t.includes("bigode") || t.includes("fazer a barba")) detectedKey = "barba";
+    else if (t.includes("sobrancelha")) detectedKey = "sobrancelha";
+    else if (t.includes("pezinho") || t.includes("acabamento")) detectedKey = "corte"; // map to corte usually
+
+    if (detectedKey) {
+        console.log(`[Heuristic] Detected Intent Key: ${detectedKey}`);
+        preAIState.service_key = detectedKey;
+
+        // Try to resolve key -> ID immediately using fuzzy matching against catalog
+        // Only if ID is missing
+        if (!preAIState.service_id && servs) {
+            let found = null;
+            if (detectedKey === 'corte') found = servs.find(s => {
+                const sn = normalize(s.name);
+                return sn.includes("corte") || sn.includes("cabelo") || sn.includes("masculino");
+            });
+            else if (detectedKey === 'barba') found = servs.find(s => normalize(s.name).includes("barba"));
+            else if (detectedKey === 'sobrancelha') found = servs.find(s => normalize(s.name).includes("sobrancelha"));
+
+            if (found) {
+                console.log(`[Heuristic] Resolved Key '${detectedKey}' to Service: ${found.name} (${found.id})`);
+                preAIState.service_id = found.id;
+                preAIState.service_name = found.name;
+            } else {
+                console.warn(`[Heuristic] Could not resolve key '${detectedKey}' to any service in catalog. Will rely on key.`);
             }
         }
+    }
 
+    // Fallback: If no key detected but user typed a service name EXACTLY (e.g. "Degradê")
+    if (!preAIState.service_id && !detectedKey && servs) {
+        const found = servs.find(s => t.includes(normalize(s.name)));
         if (found) {
-            console.log(`[Heuristic] Matched service: ${found.name}`);
-            preAIState.service_name = found.name;
             preAIState.service_id = found.id;
+            preAIState.service_name = found.name;
         }
     }
+
+
 
     // Heuristic: Professional
     if (!preAIState.professional_id && pros) {
