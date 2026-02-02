@@ -55,7 +55,7 @@ export function RegisterProfessionalForm({ token, initialName, initialPhone }: R
                 alert(result.error)
             } else {
                 alert("Cadastro realizado com sucesso! Faça login para continuar.")
-                router.push("/auth/login")
+                router.push("/login")
             }
         } catch (error) {
             console.error(error)
