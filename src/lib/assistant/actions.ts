@@ -94,9 +94,9 @@ export async function createStripeCheckout({
     // Import stripe client
     const { stripe } = await import("@/lib/stripe/client");
 
-    // Fetch booking details to get service price
+    // Fetch appointment details to get service price
     const { data: booking, error: bookingError } = await supabase
-        .from('bookings')
+        .from('appointments')
         .select(`
             id,
             organization_id,
@@ -108,7 +108,7 @@ export async function createStripeCheckout({
         .single();
 
     if (bookingError || !booking) {
-        throw new Error(`Booking not found: ${bookingId}`);
+        throw new Error(`Appointment not found: ${bookingId}`);
     }
 
     const service = Array.isArray(booking.services) ? booking.services[0] : booking.services;
