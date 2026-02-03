@@ -6,11 +6,13 @@ import { createHoldBooking, createStripeCheckout } from "./actions";
 export async function runAssistantTurn({
     conversationId,
     incomingText,
-    organizationId
+    organizationId,
+    clientPhone
 }: {
     conversationId: string;
     incomingText: string;
     organizationId: string;
+    clientPhone?: string;
 }) {
     const supabase = await createClient();
 
@@ -22,6 +24,11 @@ export async function runAssistantTurn({
         .maybeSingle();
 
     const state: BookingState = (stateRow?.state as BookingState) ?? {};
+
+    // Set client_phone if provided and not already in state
+    if (clientPhone && !state.client_phone) {
+        state.client_phone = clientPhone;
+    }
 
     // 2. Fetch History (Last 15)
     const { data: msgs } = await supabase

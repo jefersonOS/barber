@@ -134,7 +134,8 @@ export async function POST(req: Request) {
         const result = await runAssistantTurn({
             conversationId: convo.id,
             incomingText: body,
-            organizationId: org.id
+            organizationId: org.id,
+            clientPhone: phone
         });
 
         // 6. Send Reply

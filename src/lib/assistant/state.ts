@@ -10,6 +10,7 @@ export interface BookingState {
     time?: string; // HH:mm
 
     client_name?: string;
+    client_phone?: string;
     hold_booking_id?: string;
     payment_id?: string;
 

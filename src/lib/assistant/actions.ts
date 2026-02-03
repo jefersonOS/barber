@@ -69,6 +69,7 @@ export async function createHoldBooking({
         start_time: startTime,
         end_time: endTime,
         client_name: state.client_name,
+        client_phone: state.client_phone,
         payload: state as any
     }).select().single();
 
