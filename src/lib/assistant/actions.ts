@@ -60,21 +60,22 @@ export async function createHoldBooking({
         endTime = new Date(dt.getTime() + 30 * 60000).toISOString();
     }
 
-    const { data, error } = await supabase.from('bookings').insert({
+    const { data, error } = await supabase.from('appointments').insert({
         conversation_id: conversationId,
         organization_id: organizationId,
         service_id: serviceId,
         professional_id: professionalId,
-        status: 'HOLD',
+        status: 'pending', // HOLD -> pending
+        payment_status: 'pending',
         start_time: startTime,
         end_time: endTime,
-        client_name: state.client_name,
-        client_phone: state.client_phone,
-        payload: state as any
+        client_name: state.client_name || 'Cliente',
+        client_phone: state.client_phone || '',
+        metadata: state as any
     }).select().single();
 
     if (error) {
-        console.error("Error creating hold:", error);
+        console.error("Error creating appointment:", error);
         throw error;
     }
 

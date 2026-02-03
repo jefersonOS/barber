@@ -43,47 +43,40 @@ export async function POST(req: Request) {
         if (bookingId) {
             const supabase = await createClient();
 
-            // 1. Update Booking Status
-            console.log('[Stripe Webhook] Updating booking status to CONFIRMED');
-            const { error: bookingError } = await supabase
-                .from("bookings")
-                .update({ status: "CONFIRMED" })
+            // 1. Update Appointment Status
+            console.log('[Stripe Webhook] Updating appointment status to confirmed');
+            const { error: appointmentError } = await supabase
+                .from("appointments")
+                .update({
+                    status: "confirmed",
+                    payment_status: "paid",
+                    stripe_session_id: sessionId
+                })
                 .eq("id", bookingId);
 
-            if (bookingError) {
-                console.error('[Stripe Webhook] Error updating booking:', bookingError);
+            if (appointmentError) {
+                console.error('[Stripe Webhook] Error updating appointment:', appointmentError);
             } else {
-                console.log('[Stripe Webhook] Booking updated successfully');
+                console.log('[Stripe Webhook] Appointment updated successfully');
             }
 
-            // 2. Create Payment Record
-            const { error: paymentError } = await supabase.from("payments").insert({
-                booking_id: bookingId,
-                stripe_session_id: sessionId,
-                amount_cents: session.amount_total || 0,
-                currency: session.currency || 'brl',
-                status: "PAID"
-            });
-
-            if (paymentError) console.error("Error inserting payment", paymentError);
-
-            // 3. Notify User via WhatsApp (Using Evolution)
-            const { data: booking } = await supabase
-                .from("bookings")
+            // 2. Fetch Appointment Details for WhatsApp Confirmation
+            const { data: appointment } = await supabase
+                .from("appointments")
                 .select("client_phone, client_name, organization_id, start_time, profiles(full_name), services(name), organizations(whatsapp_instance_id)")
                 .eq("id", bookingId)
                 .single();
 
-            const org = Array.isArray(booking?.organizations) ? booking.organizations[0] : booking?.organizations;
-            const service = Array.isArray(booking?.services) ? booking.services[0] : booking?.services;
-            const profile = Array.isArray(booking?.profiles) ? booking.profiles[0] : booking?.profiles;
+            const org = Array.isArray(appointment?.organizations) ? appointment.organizations[0] : appointment?.organizations;
+            const service = Array.isArray(appointment?.services) ? appointment.services[0] : appointment?.services;
+            const profile = Array.isArray(appointment?.profiles) ? appointment.profiles[0] : appointment?.profiles;
 
-            if (booking && org?.whatsapp_instance_id) {
+            if (appointment && org?.whatsapp_instance_id) {
                 const evo = new EvolutionClient();
-                const dateStr = new Date(booking.start_time).toLocaleString("pt-BR");
-                const msg = `✅ Pagamento confirmado, ${booking.client_name}!\n\nSeu agendamento para *${service?.name}* com *${profile?.full_name}* em *${dateStr}* está garantido.`;
+                const dateStr = new Date(appointment.start_time).toLocaleString("pt-BR");
+                const msg = `✅ Pagamento confirmado, ${appointment.client_name}!\n\nSeu agendamento para *${service?.name}* com *${profile?.full_name}* em *${dateStr}* está garantido.`;
 
-                await evo.sendText(org.whatsapp_instance_id, booking.client_phone, msg);
+                await evo.sendText(org.whatsapp_instance_id, appointment.client_phone, msg);
             }
         }
     }
