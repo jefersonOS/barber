@@ -49,14 +49,16 @@ export async function createHoldBooking({
     // Default to first service/pro if not found? No, better to fail or hold without ID?
     // Let's create the HOLD anyway with what we have.
 
-    // Calculate times using local time (no timezone conversion)
-    // This keeps everything in the user's local timezone
+    // Calculate times - server is in UTC, so we need to add Brazil offset
+    // User selects time in BRT (UTC-3), but server interprets as UTC
+    // So we add 3 hours to compensate
     let startTime = null;
     let endTime = null;
     if (state.date && state.time) {
-        // Create date in local timezone without conversion
-        // Format: 2026-02-05T18:00:00 (no offset = treated as local)
-        const dateTimeStr = `${state.date}T${state.time}:00`;
+        // Parse the time and add 3 hours to compensate for UTC server
+        const [hours, minutes] = state.time.split(':').map(Number);
+        const adjustedHours = hours + 3; // Add 3 hours for BRT offset
+        const dateTimeStr = `${state.date}T${String(adjustedHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
         const dt = new Date(dateTimeStr);
         startTime = dt.toISOString();
         // Default 30 min if no service found
