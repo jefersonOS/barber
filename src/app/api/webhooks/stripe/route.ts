@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { EvolutionClient } from "@/lib/evolution/client";
 
 export async function POST(req: Request) {
+    console.log('[Stripe Webhook] Received webhook request');
     const body = await req.text();
     const signature = (await headers()).get("Stripe-Signature") as string;
 
@@ -16,26 +17,34 @@ export async function POST(req: Request) {
             signature,
             process.env.STRIPE_WEBHOOK_SECRET!
         );
+        console.log('[Stripe Webhook] Event verified:', event.type);
     } catch (err: any) {
-        console.error(`Webhook signature verification failed.`, err.message);
+        console.error(`[Stripe Webhook] Signature verification failed:`, err.message);
         return NextResponse.json({ error: "Webhook Error" }, { status: 400 });
     }
 
     if (event.type === "checkout.session.completed") {
+        console.log('[Stripe Webhook] Processing checkout.session.completed');
         const session = event.data.object;
         const bookingId = session.metadata?.booking_id;
         const sessionId = session.id;
+        console.log('[Stripe Webhook] Booking ID:', bookingId, 'Session ID:', sessionId);
 
         if (bookingId) {
             const supabase = await createClient();
 
             // 1. Update Booking Status
+            console.log('[Stripe Webhook] Updating booking status to CONFIRMED');
             const { error: bookingError } = await supabase
                 .from("bookings")
                 .update({ status: "CONFIRMED" })
                 .eq("id", bookingId);
 
-            if (bookingError) console.error("Error updating booking", bookingError);
+            if (bookingError) {
+                console.error('[Stripe Webhook] Error updating booking:', bookingError);
+            } else {
+                console.log('[Stripe Webhook] Booking updated successfully');
+            }
 
             // 2. Create Payment Record
             const { error: paymentError } = await supabase.from("payments").insert({
