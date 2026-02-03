@@ -49,14 +49,14 @@ export async function createHoldBooking({
     // Default to first service/pro if not found? No, better to fail or hold without ID?
     // Let's create the HOLD anyway with what we have.
 
-    // Calculate times in Brazil timezone (BRT = UTC-3)
+    // Calculate times in Brazil timezone (BRST = UTC-2 during daylight saving)
     // Date + Time strings to ISO with timezone offset
     let startTime = null;
     let endTime = null;
     if (state.date && state.time) {
-        // Parse as Brazil timezone (BRT = UTC-3)
-        // Format: 2026-02-05T18:00:00-03:00
-        const dateTimeStr = `${state.date}T${state.time}:00-03:00`;
+        // Parse as Brazil timezone (BRST = UTC-2 during summer)
+        // Format: 2026-02-05T18:00:00-02:00
+        const dateTimeStr = `${state.date}T${state.time}:00-02:00`;
         const dt = new Date(dateTimeStr);
         startTime = dt.toISOString();
         // Default 30 min if no service found
