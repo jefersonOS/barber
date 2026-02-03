@@ -7,12 +7,14 @@ export async function runAssistantTurn({
     conversationId,
     incomingText,
     organizationId,
-    clientPhone
+    clientPhone,
+    clientName
 }: {
     conversationId: string;
     incomingText: string;
     organizationId: string;
     clientPhone?: string;
+    clientName?: string;
 }) {
     const supabase = await createClient();
 
@@ -28,6 +30,11 @@ export async function runAssistantTurn({
     // Set client_phone if provided and not already in state
     if (clientPhone && !state.client_phone) {
         state.client_phone = clientPhone;
+    }
+
+    // Set client_name if provided and not already in state
+    if (clientName && !state.client_name) {
+        state.client_name = clientName;
     }
 
     // 2. Fetch History (Last 15)

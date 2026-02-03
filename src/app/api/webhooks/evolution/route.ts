@@ -131,11 +131,13 @@ export async function POST(req: Request) {
         }
 
         // 5. Run Assistant Turn
+        const clientName = data.pushName || undefined;
         const result = await runAssistantTurn({
             conversationId: convo.id,
             incomingText: body,
             organizationId: org.id,
-            clientPhone: phone
+            clientPhone: phone,
+            clientName
         });
 
         // 6. Send Reply
