@@ -49,20 +49,19 @@ export async function createHoldBooking({
     // Default to first service/pro if not found? No, better to fail or hold without ID?
     // Let's create the HOLD anyway with what we have.
 
-    // Calculate times - server is in UTC, so we need to add Brazil offset
-    // User selects time in BRT (UTC-3), but server interprets as UTC
-    // So we add 3 hours to compensate
+    // Store times as naive timestamps (no timezone info)
+    // This way they're stored and displayed exactly as entered
     let startTime = null;
     let endTime = null;
     if (state.date && state.time) {
-        // Parse the time and add 3 hours to compensate for UTC server
+        // Format without timezone - Postgres will store as-is
+        startTime = `${state.date}T${state.time}:00`;
+        // Calculate end time (30 min later)
         const [hours, minutes] = state.time.split(':').map(Number);
-        const adjustedHours = hours + 3; // Add 3 hours for BRT offset
-        const dateTimeStr = `${state.date}T${String(adjustedHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
-        const dt = new Date(dateTimeStr);
-        startTime = dt.toISOString();
-        // Default 30 min if no service found
-        endTime = new Date(dt.getTime() + 30 * 60000).toISOString();
+        const endMinutes = minutes + 30;
+        const endHours = hours + Math.floor(endMinutes / 60);
+        const finalMinutes = endMinutes % 60;
+        endTime = `${state.date}T${String(endHours).padStart(2, '0')}:${String(finalMinutes).padStart(2, '0')}:00`;
     }
 
     const { data, error } = await supabase.from('appointments').insert({
