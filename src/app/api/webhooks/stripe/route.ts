@@ -5,22 +5,32 @@ import { createClient } from "@/lib/supabase/server";
 import { EvolutionClient } from "@/lib/evolution/client";
 
 export async function POST(req: Request) {
-    console.log('[Stripe Webhook] Received webhook request');
-    const body = await req.text();
-    const signature = (await headers()).get("Stripe-Signature") as string;
-
-    let event: any;
+    let event: any; // Declare event here so it's accessible outside the try block if needed
 
     try {
-        event = stripe.webhooks.constructEvent(
-            body,
-            signature,
-            process.env.STRIPE_WEBHOOK_SECRET!
-        );
-        console.log('[Stripe Webhook] Event verified:', event.type);
-    } catch (err: any) {
-        console.error(`[Stripe Webhook] Signature verification failed:`, err.message);
-        return NextResponse.json({ error: "Webhook Error" }, { status: 400 });
+        console.log('[Stripe Webhook] === WEBHOOK CALLED ===');
+        console.log('[Stripe Webhook] Timestamp:', new Date().toISOString());
+
+        const body = await req.text();
+        console.log('[Stripe Webhook] Body length:', body.length);
+
+        const signature = (await headers()).get("Stripe-Signature") as string;
+        console.log('[Stripe Webhook] Has signature:', !!signature);
+
+        try {
+            event = stripe.webhooks.constructEvent(
+                body,
+                signature,
+                process.env.STRIPE_WEBHOOK_SECRET!
+            );
+            console.log('[Stripe Webhook] Event verified:', event.type);
+        } catch (err: any) {
+            console.error(`[Stripe Webhook] Signature verification failed:`, err.message);
+            return NextResponse.json({ error: "Webhook Error" }, { status: 400 });
+        }
+    } catch (outerErr: any) {
+        console.error('[Stripe Webhook] OUTER ERROR:', outerErr);
+        return NextResponse.json({ error: "Internal Error" }, { status: 500 });
     }
 
     if (event.type === "checkout.session.completed") {
