@@ -19,7 +19,7 @@ export async function updateService(serviceId: string, data: {
 
     if (error) {
         console.error("Error updating service:", error)
-        return { error: "Failed to update service." }
+        return { error: error.message || "Failed to update service." }
     }
 
     revalidatePath('/dashboard/services')
@@ -36,7 +36,7 @@ export async function deleteService(serviceId: string) {
 
     if (error) {
         console.error("Error deleting service:", error)
-        return { error: "Failed to delete service." }
+        return { error: error.message || "Failed to delete service." }
     }
 
     revalidatePath('/dashboard/services')
