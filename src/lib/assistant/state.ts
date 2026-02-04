@@ -1,7 +1,7 @@
 export interface BookingState {
     service_id?: string;
     service_name?: string;
-    service_key?: "corte" | "barba" | "sobrancelha" | null; // Canonical Intent
+    service_key?: "corte" | "barba" | "sobrancelha" | "hidratacao" | null; // Canonical Intent
 
     professional_id?: string;
     professional_name?: string;
@@ -22,6 +22,7 @@ export interface BookingState {
         date?: string;
         time?: string;
         service_options?: string[]; // IDs of services listed in the menu
+        service_options_label?: string[];
     };
 }
 

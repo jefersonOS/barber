@@ -137,7 +137,7 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
                 preAIState.service_name = picked.name;
 
                 // Clear the question since it's answered
-                preAIState.last_question_key = undefined;
+                (preAIState as any).last_question_key = undefined;
 
                 // Infer service_key from name to help consistency
                 const normalized = picked.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -183,8 +183,6 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
             console.log("[Correction] Wiped service state for re-detection.");
         }
     }
-
-    const lowerText = incomingText.toLowerCase();
 
     // --- HEURISTICS (NLU - Robust Semantic Extraction) ---
     // 1. Service Extraction - Fuzzy Logic
