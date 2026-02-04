@@ -141,6 +141,7 @@ export async function POST(req: Request) {
         });
 
         // 6. Send Reply
+        console.log(`[Webhook] Assistant returned reply: "${result.reply?.substring(0, 50)}..."`);
         if (result.reply && result.reply.trim()) {
             const evo = new EvolutionClient();
             await evo.sendText(instanceId, phone, result.reply);

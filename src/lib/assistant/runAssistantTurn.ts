@@ -711,6 +711,10 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
 
     // ✅ PERSIST STATE MOVED TO END
 
+    // ✅ PERSIST STATE MOVED TO END
+
+    console.log(`[Return] Final Reply length: ${finalReply?.length}, Content: "${finalReply?.substring(0, 50)}..."`);
+
     return {
         reply: finalReply,
         action: ai.next_action
