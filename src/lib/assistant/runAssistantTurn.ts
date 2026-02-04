@@ -692,4 +692,3 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
         action: ai.next_action
     };
 }
-    }
