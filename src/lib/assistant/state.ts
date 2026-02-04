@@ -24,6 +24,8 @@ export interface BookingState {
         time?: string;
         service_options?: string[]; // IDs of services listed in the menu
         service_options_label?: string[];
+        professional_options?: string[];
+        professional_options_label?: string[];
     };
 }
 
