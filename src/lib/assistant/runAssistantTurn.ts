@@ -196,8 +196,12 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
     // --- GREETING RESET LOGIC ---
     // If user says just "Oi", "Ola", etc., wipe state to force fresh start.
     const cleanText = normalize(incomingText);
-    const greetings = ["oi", "ola", "bom dia", "boa tarde", "boa noite", "eai", "opa", "oie"];
-    if (greetings.includes(cleanText)) {
+    // Regex for "Greeting Only" (allows punctuation, but no other words)
+    // Matches: "oi", "oi!", "ola.", "bom dia"
+    // Does NOT Match: "oi quero agendar"
+    const greetingRegex = /^(oi|ola|olá|bom dia|boa tarde|boa noite|eai|opa|oie|hey|hello)[\s!.,?]*$/i;
+
+    if (greetingRegex.test(cleanText)) {
         console.log("[Greeting] Generic greeting detected. Resetting state for fresh start.");
         preAIState.service_id = undefined;
         preAIState.service_name = undefined;
