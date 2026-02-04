@@ -351,6 +351,30 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
     const safeUpdates = normalizeStateUpdates(ai.state_updates);
     const mergedState = applyStateUpdates(preAIState, safeUpdates);
 
+    // --- SAFETY NET ---
+    // If we had valid state (Service/Pro) before AI, and AI "forgot" them (returned null/undefined implicit),
+    // we MUST restore them unless there was a specific "correction" intent detected earlier.
+    // This prevents the "Loop" where AI asks for something we already have.
+
+    // Check detection of "Cancel/Change" intent in earlier logic loop?
+    // We can rely on: If preAIState had it, and incoming text DOES NOT look like a cancellation, restore it.
+
+    const isCorrection = incomingText.toLowerCase().includes("mudar") || incomingText.toLowerCase().includes("cancelar") || incomingText.toLowerCase().includes("escolher outro");
+
+    if (!isCorrection) {
+        if (preAIState.service_id && !mergedState.service_id) {
+            console.warn(`[Safety] Restoring Service ID ${preAIState.service_id} (AI dropped it)`);
+            mergedState.service_id = preAIState.service_id;
+            mergedState.service_name = preAIState.service_name;
+            mergedState.service_key = preAIState.service_key;
+        }
+        if (preAIState.professional_id && !mergedState.professional_id) {
+            console.warn(`[Safety] Restoring Professional ID ${preAIState.professional_id} (AI dropped it)`);
+            mergedState.professional_id = preAIState.professional_id;
+            mergedState.professional_name = preAIState.professional_name;
+        }
+    }
+
     let finalReply = ai.reply; // Initial reply from AI
 
 
@@ -374,11 +398,15 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
                 // Proceed to next check (Date/Time)
             } else {
                 const list = (pros ?? [])
-                    .map((p, i) => `${i + 1}. ${p.full_name}`)
+                    .map(p => `• ${p.full_name}`)
                     .join("\n");
 
                 finalReply =
                     `Show. Agora escolhe o profissional:\n\n` +
+                    `• Primeiro disponível\n` +
+                    `${list}\n\n` +
+                    `Responda com o nome do profissional (ex: Joaquim).`;
+                `Show. Agora escolhe o profissional:\n\n` +
                     `0) Primeiro disponível\n` +
                     `${list}\n\n` +
                     `Responda com o número (ex: 2).`;
