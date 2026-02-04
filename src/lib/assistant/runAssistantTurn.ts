@@ -85,16 +85,18 @@ export async function runAssistantTurn({
 
     console.log(`[Context] Organization: ${organizationId}, Found ${servs?.length ?? 0} services, ${pros?.length ?? 0} pros.`);
 
-    // Fetch organization's custom AI prompt
+    // Fetch organization's custom AI prompt and Name
     const { data: orgData } = await supabase
         .from('organizations')
-        .select('ai_system_prompt')
+        .select('ai_system_prompt, name')
         .eq('id', organizationId)
         .single();
 
     const customPrompt = orgData?.ai_system_prompt || null;
+    const organizationName = orgData?.name || "Barbearia";
 
     const context = `
+Estabelecimento: ${organizationName}
 Profissionais:
 ${pros?.map(p => `- ${p.full_name}`).join('\n') || '- N/A'}
 
