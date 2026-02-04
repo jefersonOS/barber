@@ -88,11 +88,17 @@ export async function runAssistantTurn({
     // Fetch organization's custom AI prompt
     const { data: orgData } = await supabase
         .from('organizations')
-        .select('ai_system_prompt')
+        .select('ai_system_prompt, name')
         .eq('id', organizationId)
         .single();
 
-    const customPrompt = orgData?.ai_system_prompt || null;
+    let customPrompt = orgData?.ai_system_prompt || null;
+
+    // Replace variables (e.g. {nome do estabelecimento})
+    if (customPrompt && orgData?.name) {
+        customPrompt = customPrompt.replace(/{nome do estabelecimento}/g, orgData.name);
+        customPrompt = customPrompt.replace(/{organization_name}/g, orgData.name);
+    }
 
     const context = `
 Profissionais:
@@ -329,7 +335,7 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
                 // Proceed to next check (Date/Time)
             } else {
                 const list = (pros ?? [])
-                    .map((p, i) => `${i + 1}) ${p.full_name}`)
+                    .map((p, i) => `${i + 1}. ${p.full_name}`)
                     .join("\n");
 
                 finalReply =
@@ -365,7 +371,7 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
         // C) Missing Service DE VERDADE (No Key, No Name, No ID) -> Then List
         if (missingConversation.includes("service")) {
             const list = (activeServs ?? [])
-                .map((s, i) => `${i + 1}) ${s.name} (R$${s.price})`)
+                .map((s, i) => `${i + 1}. ${s.name} (R$${s.price})`)
                 .join("\n");
 
             finalReply =
@@ -450,7 +456,7 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
             // Fallthrough to next check (Date/Time)
         } else {
             const list = (pros ?? [])
-                .map((p, i) => `${i + 1}) ${p.full_name}`)
+                .map((p, i) => `${i + 1}. ${p.full_name}`)
                 .join("\n");
 
             const finalReply =
@@ -517,7 +523,7 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
             } else {
                 const options = candidates.length ? candidates : (activeServs ?? []);
                 const list = options
-                    .map((s, i) => `${i + 1}) ${s.name} (R$${s.price})`)
+                    .map((s, i) => `${i + 1}. ${s.name} (R$${s.price})`)
                     .join("\n");
 
                 finalReply =
@@ -592,7 +598,7 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
                 // Catch specific errors from actions.ts
                 if (e.message.includes("Service not found")) {
                     const list = (activeServs ?? [])
-                        .map((s, i) => `${i + 1}) ${s.name} (R$${s.price})`)
+                        .map((s, i) => `${i + 1}. ${s.name} (R$${s.price})`)
                         .join("\n");
 
                     finalReply =

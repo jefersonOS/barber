@@ -135,8 +135,9 @@ Você DEVE responder APENAS um JSON neste formato:
    const finalPrompt = systemPrompt || defaultPrompt;
 
    // Ensure JSON instruction is always present (required by OpenAI when using json_object format)
+   // Ensure JSON instruction is always present (required by OpenAI when using json_object format)
    const promptWithJsonInstruction = systemPrompt
-      ? `${systemPrompt}\n\nIMPORTANT: You must respond in JSON format with the following structure:\n${jsonStructure}`
+      ? `${systemPrompt}\n\nCONTEXTO OBRIGATÓRIO (Serviços e Profissionais):\n${context}\n\nIMPORTANT: You must respond in JSON format with the following structure:\n${jsonStructure}`
       : finalPrompt;
 
    const response = await openai.chat.completions.create({
