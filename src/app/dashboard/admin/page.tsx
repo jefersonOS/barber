@@ -17,6 +17,7 @@ import {
     TableRow,
 } from "@/components/ui/table"
 import { getSystemSettings, updateSystemSetting } from "@/app/actions/admin-settings"
+import { AIPromptEditor } from "@/components/dashboard/settings/ai-prompt-editor"
 // Wait, I saw the list_dir earlier and 'tabs.tsx' was NOT in components/ui.
 // I will simulate Tabs with state to be safe and avoid errors, as planned.
 
@@ -25,6 +26,7 @@ export default function AdminDashboardPage() {
     const [orgs, setOrgs] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [activeTab, setActiveTab] = useState("overview")
+    const [currentOrgId, setCurrentOrgId] = useState<string | null>(null)
 
     // Settings State
     const [openaiKey, setOpenaiKey] = useState("")
@@ -33,6 +35,14 @@ export default function AdminDashboardPage() {
 
     useEffect(() => {
         async function fetchOrgs() {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+                const { data: profile } = await supabase.from('profiles').select('organization_id').eq('id', user.id).single()
+                if (profile?.organization_id) {
+                    setCurrentOrgId(profile.organization_id)
+                }
+            }
+
             const { data, error } = await supabase
                 .from('organizations')
                 .select('*')
@@ -208,6 +218,18 @@ export default function AdminDashboardPage() {
                             </Button>
                         </CardFooter>
                     </Card>
+
+                    {currentOrgId && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>AI System Prompt</CardTitle>
+                                <CardDescription>Customize the AI assistant behavior for your organization.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <AIPromptEditor organizationId={currentOrgId} />
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             )}
         </div>
