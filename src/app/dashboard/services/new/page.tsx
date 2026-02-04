@@ -27,6 +27,7 @@ const formSchema = z.object({
     description: z.string().optional(),
     duration_min: z.coerce.number().min(5, "Duration must be at least 5 minutes"),
     price: z.coerce.number().min(0, "Price must be positive"),
+    deposit_percentage: z.coerce.number().min(0).max(100).optional().nullable(),
 })
 
 export default function NewServicePage() {
@@ -41,6 +42,7 @@ export default function NewServicePage() {
             description: "",
             duration_min: 30,
             price: 0,
+            deposit_percentage: null,
         },
     })
 
@@ -61,6 +63,7 @@ export default function NewServicePage() {
                 description: values.description,
                 duration_min: values.duration_min,
                 price: values.price,
+                deposit_percentage: values.deposit_percentage,
             })
 
             if (error) throw error
@@ -147,6 +150,30 @@ export default function NewServicePage() {
                                     )}
                                 />
                             </div>
+                            <FormField
+                                control={form.control}
+                                name="deposit_percentage"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Porcentagem de Entrada (%)</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                placeholder="Deixe vazio para usar padrão global"
+                                                {...field}
+                                                value={field.value ?? ""}
+                                                onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                                            />
+                                        </FormControl>
+                                        <p className="text-xs text-muted-foreground">
+                                            Se não definido, será usado o padrão global da organização (50%)
+                                        </p>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                             <Button type="submit" className="w-full" disabled={loading}>
                                 {loading ? t("service.creating") : t("service.create")}
                             </Button>

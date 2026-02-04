@@ -6,6 +6,7 @@ import { SettingsForm } from "@/components/dashboard/settings/settings-form"
 import { WhatsAppConnection } from "@/components/dashboard/settings/whatsapp-connection"
 import { BusinessHoursScheduler } from "@/components/dashboard/settings/business-hours"
 import { AIPromptEditor } from "@/components/dashboard/settings/ai-prompt-editor"
+import { DepositSettings } from "@/components/dashboard/settings/deposit-settings"
 import { useLanguage } from "@/contexts/language-context"
 import { useEffect, useState } from "react"
 
@@ -50,6 +51,8 @@ export default function SettingsPage() {
                             <WhatsAppConnection organization={organization} />
                             <div className="h-px bg-border" />
                             <BusinessHoursScheduler organizationId={organization.id} />
+                            <div className="h-px bg-border" />
+                            <DepositSettings organizationId={organization.id} />
                             <div className="h-px bg-border" />
                             <AIPromptEditor organizationId={organization.id} />
                             <div className="h-px bg-border" />

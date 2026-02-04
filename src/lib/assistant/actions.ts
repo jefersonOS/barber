@@ -122,6 +122,10 @@ export async function createStripeCheckout({
         throw new Error('Service or price not found');
     }
 
+    // Determine deposit percentage: use service-specific or fall back to organization default (50%)
+    const depositPercentage = service.deposit_percentage ?? organization?.default_deposit_percentage ?? 50;
+    const depositAmount = Number(service.price) * (depositPercentage / 100);
+
     // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'], // Add 'pix' when available in your Stripe account
@@ -130,10 +134,10 @@ export async function createStripeCheckout({
                 price_data: {
                     currency: 'brl',
                     product_data: {
-                        name: `${service.name} - Entrada 50%`,
-                        description: `Entrada de 50% para agendamento com ${organization?.name || 'Barbearia'}`,
+                        name: `${service.name} - Entrada ${depositPercentage}%`,
+                        description: `Entrada de ${depositPercentage}% para agendamento com ${organization?.name || 'Barbearia'}`,
                     },
-                    unit_amount: Math.round(Number(service.price) * 0.5 * 100), // 50% deposit in cents
+                    unit_amount: Math.round(depositAmount * 100), // Deposit in cents
                 },
                 quantity: 1,
             },
