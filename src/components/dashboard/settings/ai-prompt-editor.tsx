@@ -1,11 +1,9 @@
 "use client"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { getAISystemPrompt, saveAISystemPrompt } from "@/app/actions/settings"
 import { useEffect, useState } from "react"
-import { useToast } from "@/hooks/use-toast"
 
 interface AIPromptEditorProps {
     organizationId: string
@@ -15,7 +13,7 @@ export function AIPromptEditor({ organizationId }: AIPromptEditorProps) {
     const [prompt, setPrompt] = useState("")
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
-    const { toast } = useToast()
+    const [message, setMessage] = useState("")
 
     useEffect(() => {
         async function loadPrompt() {
@@ -30,21 +28,18 @@ export function AIPromptEditor({ organizationId }: AIPromptEditorProps) {
 
     async function handleSave() {
         setSaving(true)
+        setMessage("")
         const result = await saveAISystemPrompt(organizationId, prompt)
 
         if (result.error) {
-            toast({
-                title: "Erro",
-                description: result.error,
-                variant: "destructive"
-            })
+            setMessage(`Erro: ${result.error}`)
         } else {
-            toast({
-                title: "Sucesso",
-                description: "Prompt do AI salvo com sucesso!"
-            })
+            setMessage("✅ Prompt salvo com sucesso!")
         }
         setSaving(false)
+
+        // Clear message after 3 seconds
+        setTimeout(() => setMessage(""), 3000)
     }
 
     if (loading) return <div>Carregando...</div>
@@ -66,9 +61,16 @@ export function AIPromptEditor({ organizationId }: AIPromptEditorProps) {
             />
 
             <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
-                    {prompt.length} caracteres
-                </p>
+                <div className="flex items-center gap-4">
+                    <p className="text-sm text-muted-foreground">
+                        {prompt.length} caracteres
+                    </p>
+                    {message && (
+                        <p className="text-sm font-medium text-green-600">
+                            {message}
+                        </p>
+                    )}
+                </div>
                 <Button onClick={handleSave} disabled={saving}>
                     {saving ? "Salvando..." : "Salvar Prompt"}
                 </Button>
