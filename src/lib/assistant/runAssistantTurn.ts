@@ -441,7 +441,7 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
             }
             // Save state & Return
             console.log("[Flow] Asking for Date/Time");
-            // Persist at end, just let fall through logic
+            return { reply: finalReply, action: ai.next_action };
         }
 
         // C) Missing Service DE VERDADE (No Key, No Name, No ID) -> Then List
