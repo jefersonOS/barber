@@ -328,8 +328,11 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
             preAIState.professional_name = foundPro.full_name;
             preAIState.professional_id = foundPro.id;
             (preAIState as any).last_question_key = undefined;
+        } else {
+            console.log(`[Heuristic] No pro matched for: "${lowerText}"`);
         }
     }
+    console.log("[Pre-AI State]", JSON.stringify(preAIState));
     // --- HEURISTICS END ---
 
     // 4. Run AI Turn (With Pre-Processed State)
