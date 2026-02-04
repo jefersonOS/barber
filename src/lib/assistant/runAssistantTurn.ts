@@ -401,9 +401,11 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
         if (missingConversation.includes("date") || missingConversation.includes("time")) {
             // Fallback to AI reply if it asked naturally, or force specific text
             // But usually AI asks well. We just ensure we don't skip to HOLD.
-            if (ai.next_action !== "ASK_MISSING") {
+            // Fallback to AI reply if it asked naturally, or force specific text
+            // Ensure we never return silent response
+            if (!finalReply || finalReply.length < 5 || ai.next_action !== "ASK_MISSING") {
                 ai.next_action = "ASK_MISSING";
-                finalReply = "Qual dia e horário você prefere? (ex: terça 16:00)";
+                finalReply = "Perfeito. Qual dia e horário você prefere? (ex: terça às 14:00)";
             }
             // Save state & Return
             console.log("[Flow] Asking for Date/Time");
