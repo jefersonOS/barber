@@ -70,9 +70,10 @@ INSTRUÇÕES:
 5. Decida a next_action.
    - Se falta info (service, professional, date, time), next_action = "ASK_MISSING".
    - Se tem tudo e não tem hold, next_action = "CREATE_HOLD".
-   - Se tem hold e não pagou, next_action = "CREATE_PAYMENT".
+   - Se tem hold e usuário CONFIRMOU explicitamente (disse "sim", "confirmar", "ok", etc), next_action = "CREATE_PAYMENT".
+   - Se tem hold mas usuário NÃO confirmou ainda, next_action = "NONE" (apenas mostre resumo e peça confirmação).
    - Se pagou, next_action = "CONFIRM_BOOKING" (mas geralmente isso é via webhook).
-5. Gere uma reply curta e natural (WhatsApp style). Senão souber o que responder, pergunte o que falta.
+6. Gere uma reply curta e natural (WhatsApp style). Se criou hold, mostre resumo e peça confirmação explícita.
 
 Você DEVE responder APENAS um JSON neste formato:
 {
