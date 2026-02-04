@@ -209,7 +209,9 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
 
     // --- HEURISTICS (NLU - Robust Semantic Extraction) ---
     // 1. Service Extraction - Fuzzy Logic
-    const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    // --- HEURISTICS (NLU - Robust Semantic Extraction) ---
+    // 1. Service Extraction - Fuzzy Logic
+    // normalize moved up
     function tokens(s: string) { return normalize(s).split(/\s+/).filter(Boolean); }
     function scoreMatch(query: string, candidate: string) {
         const q = new Set(tokens(query));
