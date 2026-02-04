@@ -105,8 +105,8 @@ export async function createStripeCheckout({
             id,
             organization_id,
             client_name,
-            services(name, price),
-            organizations(name)
+            services(name, price, deposit_percentage),
+            organizations(name, default_deposit_percentage)
         `)
         .eq('id', bookingId)
         .single();
