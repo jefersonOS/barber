@@ -327,6 +327,7 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
             console.log(`[Heuristic] Matched pro: ${foundPro.full_name}`);
             preAIState.professional_name = foundPro.full_name;
             preAIState.professional_id = foundPro.id;
+            (preAIState as any).last_question_key = undefined;
         }
     }
     // --- HEURISTICS END ---
@@ -642,7 +643,7 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
                 // Catch specific errors from actions.ts
                 if (e.message.includes("Service not found")) {
                     const list = (activeServs ?? [])
-                        .map((s, i) => `${i + 1}. ${s.name} (R$${s.price})`)
+                        .map(s => `• ${s.name} (R$${s.price})`)
                         .join("\n");
 
                     finalReply =
