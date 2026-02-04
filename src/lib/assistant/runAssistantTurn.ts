@@ -240,6 +240,7 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
     // --- HEURISTICS END ---
 
     // 4. Run AI Turn (With Pre-Processed State)
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     const ai = await openaiChatTurn({ state: preAIState, history, incomingText, context, today });
 
     // 5. Apply Updates
