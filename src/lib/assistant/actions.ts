@@ -130,10 +130,10 @@ export async function createStripeCheckout({
                 price_data: {
                     currency: 'brl',
                     product_data: {
-                        name: service.name,
-                        description: `Agendamento com ${organization?.name || 'Barbearia'}`,
+                        name: `${service.name} - Entrada 50%`,
+                        description: `Entrada de 50% para agendamento com ${organization?.name || 'Barbearia'}`,
                     },
-                    unit_amount: Math.round(Number(service.price) * 100), // Convert to cents
+                    unit_amount: Math.round(Number(service.price) * 0.5 * 100), // 50% deposit in cents
                 },
                 quantity: 1,
             },

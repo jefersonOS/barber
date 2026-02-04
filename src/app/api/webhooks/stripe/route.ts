@@ -73,8 +73,23 @@ export async function POST(req: Request) {
 
             if (appointment && org?.whatsapp_instance_id) {
                 const evo = new EvolutionClient();
-                const dateStr = new Date(appointment.start_time).toLocaleString("pt-BR");
-                const msg = `✅ Pagamento confirmado, ${appointment.client_name}!\n\nSeu agendamento para *${service?.name}* com *${profile?.full_name}* em *${dateStr}* está garantido.`;
+                const dateStr = new Date(appointment.start_time).toLocaleString("pt-BR", {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
+                const msg = `Pagamento confirmado ✅
+Agendamento confirmado ✅
+
+✂️ Serviço: ${service?.name}
+👤 Profissional: ${profile?.full_name}
+🗓️ ${dateStr}
+💳 Entrada paga: 50%
+
+Nos vemos lá, ${appointment.client_name}! 😊`;
 
                 await evo.sendText(org.whatsapp_instance_id, appointment.client_phone, msg);
             }
