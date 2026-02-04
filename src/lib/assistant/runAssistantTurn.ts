@@ -69,6 +69,14 @@ export async function runAssistantTurn({
 
     console.log(`[Context] Organization: ${organizationId}, Found ${servs?.length ?? 0} services, ${pros?.length ?? 0} pros.`);
 
+    // Fetch organization's custom AI prompt
+    const { data: orgData } = await supabase
+        .from('organizations')
+        .select('ai_system_prompt')
+        .eq('id', organizationId)
+        .single();
+
+    const customPrompt = orgData?.ai_system_prompt || null;
 
     const context = `
 Profissionais:
@@ -241,7 +249,14 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
 
     // 4. Run AI Turn (With Pre-Processed State)
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    const ai = await openaiChatTurn({ state: preAIState, history, incomingText, context, today });
+    const ai = await openaiChatTurn({
+        state: preAIState,
+        history,
+        incomingText,
+        context,
+        today,
+        systemPrompt: customPrompt || undefined
+    });
 
     // 5. Apply Updates
     // Merge AI updates on top of Pre-Processed State

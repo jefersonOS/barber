@@ -1,38 +1,10 @@
-import { openai } from "@/lib/ai/openai";
+-- Add AI system prompt column to organizations
+ALTER TABLE organizations 
+ADD COLUMN ai_system_prompt TEXT;
 
-export async function openaiChatTurn({
-   history,
-   incomingText,
-   context,
-   state,
-   today,
-   systemPrompt
-}: {
-   history: string[];
-   incomingText: string;
-   context: string;
-   state: any;
-   today: string;
-   systemPrompt?: string;
-}) {
-   const defaultPrompt = `
-Você é um assistente de agendamento de barbearia via WhatsApp. Seu objetivo é criar uma experiência PREMIUM e CONVERSACIONAL.
-
-HOJE: ${today}
-
-CONTEXTO DO NEGÓCIO:
-${context}
-
-ESTADO ATUAL:
-${JSON.stringify(state)}
-
-HISTÓRICO DA CONVERSA:
-${JSON.stringify(history)}
-
-MENSAGEM DO USUÁRIO:
-"${incomingText}"
-
-═══════════════════════════════════════════════════════════════
+-- Set default prompt (premium conversational flow)
+UPDATE organizations 
+SET ai_system_prompt = 'Você é um assistente de agendamento de barbearia via WhatsApp. Seu objetivo é criar uma experiência PREMIUM e CONVERSACIONAL.
 
 FLUXO PREMIUM (siga rigorosamente):
 
@@ -102,41 +74,5 @@ REGRAS CRÍTICAS:
 ❌ NUNCA use CREATE_PAYMENT sem usuário pedir explicitamente
 ✅ SEMPRE auto-selecione quando só houver 1 opção
 ✅ SEMPRE use tom premium e emojis
-✅ SEMPRE confirme cada etapa
-
-═══════════════════════════════════════════════════════════════
-
-DECISÃO DE AÇÃO (next_action):
-
-- "ASK_MISSING" → Falta informação (service, professional, date, time)
-- "CREATE_HOLD" → Tem tudo, mas ainda não criou hold
-- "CREATE_PAYMENT" → Tem hold E usuário pediu link ("pagar", "link", "pagamento")
-- "NONE" → Apenas conversando ou aguardando ação do usuário
-- "CONFIRM_BOOKING" → Nunca use (webhook faz isso)
-
-═══════════════════════════════════════════════════════════════
-
-Você DEVE responder APENAS um JSON neste formato:
-{
-  "reply": string,
-  "state_updates": object,
-  "next_action": "NONE"|"ASK_MISSING"|"CREATE_HOLD"|"CREATE_PAYMENT"|"CHECK_PAYMENT"|"CONFIRM_BOOKING",
-  "missing_fields": string[]
-}
-`;
-
-   const finalPrompt = systemPrompt || defaultPrompt;
-
-   const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-         { role: "system", content: finalPrompt },
-         { role: "user", content: incomingText }
-      ],
-      temperature: 0.7,
-      response_format: { type: "json_object" }
-   });
-
-   const content = response.choices[0]?.message?.content ?? "{}";
-   return JSON.parse(content);
-}
+✅ SEMPRE confirme cada etapa'
+WHERE ai_system_prompt IS NULL;

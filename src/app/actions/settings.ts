@@ -56,3 +56,37 @@ export async function saveBusinessHours(organizationId: string, hours: BusinessH
     revalidatePath('/dashboard/settings')
     return { success: true }
 }
+
+export async function getAISystemPrompt(organizationId: string) {
+    const supabase = await createClient()
+
+    const { data, error } = await supabase
+        .from('organizations')
+        .select('ai_system_prompt')
+        .eq('id', organizationId)
+        .single()
+
+    if (error) {
+        console.error("Error fetching AI prompt:", error)
+        return null
+    }
+
+    return data?.ai_system_prompt || null
+}
+
+export async function saveAISystemPrompt(organizationId: string, prompt: string) {
+    const supabase = await createClient()
+
+    const { error } = await supabase
+        .from('organizations')
+        .update({ ai_system_prompt: prompt })
+        .eq('id', organizationId)
+
+    if (error) {
+        console.error("Error saving AI prompt:", error)
+        return { error: "Failed to save AI prompt." }
+    }
+
+    revalidatePath('/dashboard/settings')
+    return { success: true }
+}
