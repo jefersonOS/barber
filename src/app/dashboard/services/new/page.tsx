@@ -162,8 +162,7 @@ export default function NewServicePage() {
                                                 min="0"
                                                 max="100"
                                                 placeholder="Deixe vazio para usar padrão global"
-                                                {...field}
-                                                value={field.value ?? ""}
+                                                value={field.value === null || field.value === undefined ? "" : field.value}
                                                 onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
                                             />
                                         </FormControl>
