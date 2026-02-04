@@ -657,10 +657,8 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
 
     // ✅ PERSIST STATE MOVED TO END
 
-    reply: finalReply,
+    return {
+        reply: finalReply,
         action: ai.next_action
-};
-}
-action: ai.next_action
     };
 }
