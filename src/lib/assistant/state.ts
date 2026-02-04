@@ -13,6 +13,7 @@ export interface BookingState {
     client_phone?: string;
     hold_booking_id?: string;
     payment_id?: string;
+    deposit_percentage?: number;
 
     last_offer?: {
         service_id?: string;
