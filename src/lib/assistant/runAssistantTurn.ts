@@ -189,7 +189,26 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
         }
     }
 
+    const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
     const lowerText = incomingText.toLowerCase();
+
+    // --- GREETING RESET LOGIC ---
+    // If user says just "Oi", "Ola", etc., wipe state to force fresh start.
+    const cleanText = normalize(incomingText);
+    const greetings = ["oi", "ola", "bom dia", "boa tarde", "boa noite", "eai", "opa", "oie"];
+    if (greetings.includes(cleanText)) {
+        console.log("[Greeting] Generic greeting detected. Resetting state for fresh start.");
+        preAIState.service_id = undefined;
+        preAIState.service_name = undefined;
+        preAIState.service_key = undefined;
+        preAIState.professional_id = undefined;
+        preAIState.professional_name = undefined;
+        preAIState.date = undefined;
+        preAIState.time = undefined;
+        preAIState.last_offer = undefined;
+        (preAIState as any).last_question_key = undefined;
+    }
 
     // --- CORRECTION LOGIC (User changed mind) ---
     // Handle "Não quero corte, quero barba", "corrigir", etc.
@@ -209,9 +228,6 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
 
     // --- HEURISTICS (NLU - Robust Semantic Extraction) ---
     // 1. Service Extraction - Fuzzy Logic
-    // --- HEURISTICS (NLU - Robust Semantic Extraction) ---
-    // 1. Service Extraction - Fuzzy Logic
-    // normalize moved up
     function tokens(s: string) { return normalize(s).split(/\s+/).filter(Boolean); }
     function scoreMatch(query: string, candidate: string) {
         const q = new Set(tokens(query));
