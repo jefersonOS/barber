@@ -65,7 +65,23 @@ export async function runAssistantTurn({
         .from('services')
         .select('id, name, price')
         .eq('organization_id', organizationId)
-        .order('name', { ascending: true }); // Ordered for stable numbering
+        .eq('organization_id', organizationId)
+        .order('name', { ascending: true })
+        .order('price', { ascending: true }); // Order by price to keep cheapest first if deduping
+
+    // Deduplicate services by name to avoid confusion (e.g. "Hidratação" appearing twice)
+    const uniqueServsMap = new Map();
+    if (servs) {
+        for (const s of servs) {
+            if (!uniqueServsMap.has(s.name)) {
+                uniqueServsMap.set(s.name, s);
+            }
+        }
+    }
+    const uniqueServs = Array.from(uniqueServsMap.values());
+
+    // Use uniqueServs for context and logic
+    const activeServs = uniqueServs;
 
     console.log(`[Context] Organization: ${organizationId}, Found ${servs?.length ?? 0} services, ${pros?.length ?? 0} pros.`);
 
@@ -83,7 +99,7 @@ Profissionais:
 ${pros?.map(p => `- ${p.full_name}`).join('\n') || '- N/A'}
 
 Serviços:
-${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
+${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
 	`;
 
     // --- HEURISTICS (NLU) START ---
@@ -97,27 +113,38 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
 
     if (!Number.isNaN(n) && n >= 0) {
         // Choice: SERVICE
-        // Choice: SERVICE
-        if (lastQuestion === "service" && servs?.length) {
+        if (lastQuestion === "service") {
             // Check if we offered a specific sub-list (e.g. filtered by "corte")
+            // Prioritize the saved options in state to ensure "5" matches what user saw
             const offeredIds = stateRow?.state?.last_offer?.service_options;
+
             let picked: { id: string; name: string } | undefined;
 
-            if (offeredIds && offeredIds.length > 0) {
+            if (offeredIds && offeredIds.length >= n && n >= 1) {
                 // Map number to the Specific ID from the list
-                const id = offeredIds[n - 1]; // 1-based
-                if (id) picked = servs.find(s => s.id === id);
-            } else {
-                // Fallback to full list if no specific options saved
-                picked = servs[n - 1];
+                const id = offeredIds[n - 1]; // 1-based to 0-based
+                if (id) picked = activeServs.find(s => s.id === id);
+            }
+
+            // Fallback: If no saved options (legacy) or number out of range of saved, try direct index
+            if (!picked && activeServs[n - 1]) {
+                picked = activeServs[n - 1];
             }
 
             if (picked) {
                 console.log(`[Numeric] Selected Service #${n}: ${picked.name}`);
                 preAIState.service_id = picked.id;
                 preAIState.service_name = picked.name;
-                // If we selected a specific service, we can infer the key/intent or just left it as is.
-                // preAIState.service_key = "corte"; // Don't force key if we have ID.
+
+                // Clear the question since it's answered
+                preAIState.last_question_key = undefined;
+
+                // Infer service_key from name to help consistency
+                const normalized = picked.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                if (normalized.includes('barba')) preAIState.service_key = 'barba';
+                else if (normalized.includes('sobrancelha')) preAIState.service_key = 'sobrancelha';
+                else if (normalized.includes('hidrata')) preAIState.service_key = 'hidratacao';
+                else if (normalized.includes('corte') || normalized.includes('cabelo')) preAIState.service_key = 'corte';
             }
         }
 
@@ -138,6 +165,24 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
         }
     }
     // --- NUMERIC SELECTION END ---
+
+    const lowerText = incomingText.toLowerCase();
+
+    // --- CORRECTION LOGIC (User changed mind) ---
+    // Handle "Não quero corte, quero barba", "corrigir", etc.
+    const normText = lowerText.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (normText.includes("nao quero") || normText.includes("cancelar") || normText.includes("errado") || normText.includes("mudar")) {
+        console.log("[Correction] Detected correction intent.");
+
+        // If correcting service
+        if (normText.includes("corte") || normText.includes("barba") || normText.includes("sobrancelha") || normText.includes("hidratacao")) {
+            // Wipe service state
+            preAIState.service_id = undefined;
+            preAIState.service_name = undefined;
+            preAIState.service_key = undefined;
+            console.log("[Correction] Wiped service state for re-detection.");
+        }
+    }
 
     const lowerText = incomingText.toLowerCase();
 
@@ -198,9 +243,9 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
 
 
         // Try to resolve key -> ID using Fuzzy Matcher
-        if (!preAIState.service_id && servs) {
+        if (!preAIState.service_id && activeServs) {
             const query = `${incomingText} ${detectedKey}`; // Combine input + intent for better match
-            const found = resolveService(servs, query);
+            const found = resolveService(activeServs, query);
 
             if (found) {
                 console.log(`[Heuristic] Resolved Key '${detectedKey}' to Service: ${found.name} (${found.id})`);
@@ -222,8 +267,8 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
     }
 
     // Fallback: If no key detected but user typed a service name EXACTLY (e.g. "Degradê")
-    if (!preAIState.service_id && !detectedKey && servs) {
-        const found = servs.find(s => t.includes(normalize(s.name)));
+    if (!preAIState.service_id && !detectedKey && activeServs) {
+        const found = activeServs.find(s => t.includes(normalize(s.name)));
         if (found) {
             preAIState.service_id = found.id;
             preAIState.service_name = found.name;
@@ -321,7 +366,7 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
 
         // C) Missing Service DE VERDADE (No Key, No Name, No ID) -> Then List
         if (missingConversation.includes("service")) {
-            const list = (servs ?? [])
+            const list = (activeServs ?? [])
                 .map((s, i) => `${i + 1}) ${s.name} (R$${s.price})`)
                 .join("\n");
 
@@ -329,6 +374,12 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
                 `Fechou. Qual serviço você quer?\n\n` +
                 `${list}\n\n` +
                 `Responda com o número (ex: 1).`;
+
+            mergedState.last_offer = {
+                ...(mergedState.last_offer ?? {}),
+                service_options: (activeServs ?? []).map(s => s.id),
+                service_options_label: (activeServs ?? []).map(s => s.name)
+            };
 
             await supabase.from("booking_state").upsert({
                 conversation_id: conversationId,
@@ -365,7 +416,7 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
 
     // 1) Missing Service Intent (Total)
     if (!hasServiceIntent(mergedState)) {
-        const list = (servs ?? [])
+        const list = (activeServs ?? [])
             .map((s, i) => `${i + 1}) ${s.name} (R$${s.price})`)
             .join("\n");
 
@@ -375,7 +426,11 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
             `Responda com o número (ex: 1).`;
 
         // Save options for numeric selection
-        mergedState.last_offer = { ...mergedState.last_offer, service_options: (servs ?? []).map(s => s.id) };
+        mergedState.last_offer = {
+            ...mergedState.last_offer,
+            service_options: (activeServs ?? []).map(s => s.id),
+            service_options_label: (activeServs ?? []).map(s => s.name)
+        };
 
         await supabase.from("booking_state").upsert({
             conversation_id: conversationId,
@@ -440,7 +495,7 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
             const norm = (x: string) => x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             const key = mergedState.service_key;
 
-            const candidates = (servs ?? []).filter(s => {
+            const candidates = (activeServs ?? []).filter(s => {
                 const n = norm(s.name);
                 return key === "corte"
                     ? (n.includes("corte") || n.includes("cabelo") || n.includes("degrade") || n.includes("navalha") || n.includes("social"))
@@ -462,7 +517,7 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
 
                 // Continue flow -> Will hit CREATE_HOLD check below
             } else {
-                const options = candidates.length ? candidates : (servs ?? []);
+                const options = candidates.length ? candidates : (activeServs ?? []);
                 const list = options
                     .map((s, i) => `${i + 1}) ${s.name} (R$${s.price})`)
                     .join("\n");
@@ -473,7 +528,11 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
                     `Responda com o número (ex: 1).`;
 
                 // Save options for numeric selection
-                mergedState.last_offer = { ...mergedState.last_offer, service_options: options.map(s => s.id) };
+                mergedState.last_offer = {
+                    ...mergedState.last_offer,
+                    service_options: options.map(s => s.id),
+                    service_options_label: options.map(s => s.name)
+                };
 
                 await supabase.from("booking_state").upsert({
                     conversation_id: conversationId,
@@ -523,7 +582,7 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
                 console.error("Failed to create hold", e);
                 // Catch specific errors from actions.ts
                 if (e.message.includes("Service not found")) {
-                    const list = (servs ?? [])
+                    const list = (activeServs ?? [])
                         .map((s, i) => `${i + 1}) ${s.name} (R$${s.price})`)
                         .join("\n");
 
@@ -538,7 +597,14 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
                     // salva que a última pergunta foi service (pra interpretar "1", "2", etc)
                     await supabase.from("booking_state").upsert({
                         conversation_id: conversationId,
-                        state: mergedState as any,
+                        state: {
+                            ...mergedState,
+                            last_offer: {
+                                ...(mergedState.last_offer ?? {}),
+                                service_options: (activeServs ?? []).map(s => s.id),
+                                service_options_label: (activeServs ?? []).map(s => s.name)
+                            }
+                        } as any,
                         last_question_key: "service",
                     });
 
