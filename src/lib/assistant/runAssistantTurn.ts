@@ -253,7 +253,7 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
                 console.warn(`[Heuristic] Could not resolve key '${detectedKey}' to any service (Fuzzy Score too low). Will fallback or Ask.`);
                 // 3) Strict Fallback: "corte" always maps to something with "corte" if standard resolver failed
                 if (detectedKey === 'corte') {
-                    const fallback = servs.find(s => normalize(s.name).includes("corte"));
+                    const fallback = activeServs.find(s => normalize(s.name).includes("corte"));
                     if (fallback) {
                         console.log(`[Heuristic] Fallback service for 'corte': ${fallback.name}`);
                         preAIState.service_id = fallback.id;
