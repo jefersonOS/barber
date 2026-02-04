@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { chatTurn } from "./openaiChatTurn";
+import { openaiChatTurn } from "./openaiChatTurn";
 import { applyStateUpdates, computeMissing, normalizeStateUpdates, BookingState, computeMissingForHold } from "./state";
 import { createHoldBooking, createStripeCheckout } from "./actions";
 
@@ -240,7 +240,7 @@ ${servs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
     // --- HEURISTICS END ---
 
     // 4. Run AI Turn (With Pre-Processed State)
-    const ai = await chatTurn({ state: preAIState, history, incomingText, context });
+    const ai = await openaiChatTurn({ state: preAIState, history, incomingText, context, today });
 
     // 5. Apply Updates
     // Merge AI updates on top of Pre-Processed State
