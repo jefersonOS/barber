@@ -399,7 +399,7 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
                 .join("\n");
 
             finalReply =
-                `Fechou. Qual serviço você quer?\n\n` +
+                `Olá obrigado por entrar em contato com a ${orgData?.name || "Barbearia"}, Qual serviço você deseja realizar?\n\n` +
                 `${list}\n\n` +
                 `Responda com o número (ex: 1).`;
 
