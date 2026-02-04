@@ -125,6 +125,13 @@ Você DEVE responder APENAS um JSON neste formato:
 }
 `;
 
+   const jsonStructure = `{
+  "reply": string,
+  "state_updates": object,
+  "next_action": "NONE"|"ASK_MISSING"|"CREATE_HOLD"|"CREATE_PAYMENT"|"CHECK_PAYMENT"|"CONFIRM_BOOKING",
+  "missing_fields": string[]
+}`;
+
    const finalPrompt = systemPrompt || defaultPrompt;
 
    // Ensure JSON instruction is always present (required by OpenAI when using json_object format)
