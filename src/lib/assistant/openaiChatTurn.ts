@@ -127,10 +127,15 @@ Você DEVE responder APENAS um JSON neste formato:
 
    const finalPrompt = systemPrompt || defaultPrompt;
 
+   // Ensure JSON instruction is always present (required by OpenAI when using json_object format)
+   const promptWithJsonInstruction = systemPrompt
+      ? `${systemPrompt}\n\nIMPORTANT: You must respond in JSON format with the following structure:\n${jsonStructure}`
+      : finalPrompt;
+
    const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-         { role: "system", content: finalPrompt },
+         { role: "system", content: promptWithJsonInstruction },
          { role: "user", content: incomingText }
       ],
       temperature: 0.7,
