@@ -415,13 +415,13 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
         // C) Missing Service DE VERDADE (No Key, No Name, No ID) -> Then List
         if (missingConversation.includes("service")) {
             const list = (activeServs ?? [])
-                .map((s, i) => `${i + 1}. ${s.name} (R$${s.price})`)
+                .map(s => `• ${s.name} (R$${s.price})`)
                 .join("\n");
 
             finalReply =
                 `Olá obrigado por entrar em contato com a ${orgData?.name || "Barbearia"}, Qual serviço você deseja realizar?\n\n` +
                 `${list}\n\n` +
-                `Responda com o número (ex: 1).`;
+                `Responda com o nome do serviço (ex: Barba).`;
 
             mergedState.last_offer = {
                 ...(mergedState.last_offer ?? {}),
