@@ -85,18 +85,16 @@ export async function runAssistantTurn({
 
     console.log(`[Context] Organization: ${organizationId}, Found ${servs?.length ?? 0} services, ${pros?.length ?? 0} pros.`);
 
-    // Fetch organization's custom AI prompt and Name
+    // Fetch organization's custom AI prompt
     const { data: orgData } = await supabase
         .from('organizations')
-        .select('ai_system_prompt, name')
+        .select('ai_system_prompt')
         .eq('id', organizationId)
         .single();
 
     const customPrompt = orgData?.ai_system_prompt || null;
-    const organizationName = orgData?.name || "Barbearia";
 
     const context = `
-Estabelecimento: ${organizationName}
 Profissionais:
 ${pros?.map(p => `- ${p.full_name}`).join('\n') || '- N/A'}
 
@@ -573,83 +571,90 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
                     const checkout = await createStripeCheckout({ supabase, bookingId: hold.bookingId, state: mergedState });
                     mergedState.payment_id = checkout.sessionId;
 
-                    finalReply += `\n\n✅ Pré-reserva realizada!\n\n💳 Para confirmar, faça o pagamento aqui:\n${checkout.url}\n\n(Assim que pagar, eu confirmo automaticamente!)`;
-                } catch (paymentError: any) {
-                    console.error('[Payment] Failed to create checkout:', paymentError);
-                    finalReply += "\n\n⚠️ Reserva criada, mas houve um erro ao gerar o link de pagamento. Tente novamente em instantes.";
-                }
-            } catch (e: any) {
-                console.error("Failed to create hold", e);
-                // Catch specific errors from actions.ts
-                if (e.message.includes("Service not found")) {
-                    const list = (activeServs ?? [])
-                        .map((s, i) => `${i + 1}) ${s.name} (R$${s.price})`)
-                        .join("\n");
+                    const depositText = mergedState.deposit_percentage
+                        ? `Nós estamos com novas politica quanto a agendamentos, para confirmar cobramos ${mergedState.deposit_percentage}%`
+                        : `Nós estamos com novas politica quanto a agendamentos, para confirmar cobramos o valor total`;
+
+                    // Format date (e.g. 2026-02-03 -> 03/02/2026)
+                    const dateParts = mergedState.date?.split('-') || [];
+                    const friendlyDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : mergedState.date;
 
                     finalReply =
-                        `Não consegui identificar o serviço com certeza 😅\n` +
-                        `Me diz qual é, escolhendo na lista:\n\n` +
-                        `${list}\n\n` +
-                        `Responda com o número (ex: 1).`;
+                        `Perfeito Vamos pré-agendar seu ${mergedState.service_name || "serviço"} para ${friendlyDate} às ${mergedState.time}.\n\n` +
+                        `${depositText}.\n\n` +
+                        `Link para pagamento\n${checkout.url}\n\n(Assim que pagar, eu confirmo automaticamente!)`;
+                } catch (e: any) {
+                    console.error("Failed to create hold", e);
+                    // Catch specific errors from actions.ts
+                    if (e.message.includes("Service not found")) {
+                        const list = (activeServs ?? [])
+                            .map((s, i) => `${i + 1}) ${s.name} (R$${s.price})`)
+                            .join("\n");
 
-                    ai.next_action = "ASK_MISSING";
+                        finalReply =
+                            `Não consegui identificar o serviço com certeza 😅\n` +
+                            `Me diz qual é, escolhendo na lista:\n\n` +
+                            `${list}\n\n` +
+                            `Responda com o número (ex: 1).`;
 
-                    // salva que a última pergunta foi service (pra interpretar "1", "2", etc)
-                    await supabase.from("booking_state").upsert({
-                        conversation_id: conversationId,
-                        state: {
-                            ...mergedState,
-                            last_offer: {
-                                ...(mergedState.last_offer ?? {}),
-                                service_options: (activeServs ?? []).map(s => s.id),
-                                service_options_label: (activeServs ?? []).map(s => s.name)
-                            }
-                        } as any,
-                        last_question_key: "service",
-                    });
+                        ai.next_action = "ASK_MISSING";
 
-                } else if (e.message.includes("Professional not found")) {
-                    finalReply = "Não encontrei esse profissional. Tem preferência por outro?";
-                    ai.next_action = "ASK_MISSING";
-                } else {
-                    finalReply = "Tive um erro técnico ao reservar. Pode tentar novamente?";
+                        // salva que a última pergunta foi service (pra interpretar "1", "2", etc)
+                        await supabase.from("booking_state").upsert({
+                            conversation_id: conversationId,
+                            state: {
+                                ...mergedState,
+                                last_offer: {
+                                    ...(mergedState.last_offer ?? {}),
+                                    service_options: (activeServs ?? []).map(s => s.id),
+                                    service_options_label: (activeServs ?? []).map(s => s.name)
+                                }
+                            } as any,
+                            last_question_key: "service",
+                        });
+
+                    } else if (e.message.includes("Professional not found")) {
+                        finalReply = "Não encontrei esse profissional. Tem preferência por outro?";
+                        ai.next_action = "ASK_MISSING";
+                    } else {
+                        finalReply = "Tive um erro técnico ao reservar. Pode tentar novamente?";
+                    }
                 }
             }
-        }
     }
 
-    if (ai.next_action === "CREATE_PAYMENT") {
-        if (mergedState.hold_booking_id) {
-            try {
-                const checkout = await createStripeCheckout({ supabase, bookingId: mergedState.hold_booking_id, state: mergedState });
-                mergedState.payment_id = checkout.sessionId; // Store session
+        if (ai.next_action === "CREATE_PAYMENT") {
+            if (mergedState.hold_booking_id) {
+                try {
+                    const checkout = await createStripeCheckout({ supabase, bookingId: mergedState.hold_booking_id, state: mergedState });
+                    mergedState.payment_id = checkout.sessionId; // Store session
 
-                // Store session -> DELETED (Will save at end)
+                    // Store session -> DELETED (Will save at end)
 
-                finalReply += `\n\n🔗 Link para pagamento: ${checkout.url}\n(Assim que pagar, eu confirmo aqui!)`;
-            } catch (e) {
-                console.error("Payment link error", e);
-                finalReply = "Erro ao gerar link de pagamento.";
+                    finalReply += `\n\n🔗 Link para pagamento: ${checkout.url}\n(Assim que pagar, eu confirmo aqui!)`;
+                } catch (e) {
+                    console.error("Payment link error", e);
+                    finalReply = "Erro ao gerar link de pagamento.";
+                }
+            } else {
+                // Logic gap: Tried to pay without hold?
+                finalReply += "\n(Ops, preciso criar a reserva antes de gerar pagamento. Vamos confirmar os dados?)";
             }
-        } else {
-            // Logic gap: Tried to pay without hold?
-            finalReply += "\n(Ops, preciso criar a reserva antes de gerar pagamento. Vamos confirmar os dados?)";
         }
+
+        // --- FINAL SAVE (Single Source of Truth) ---
+        console.log("[StateToSave]", JSON.stringify(mergedState));
+
+        await supabase.from("booking_state").upsert({
+            conversation_id: conversationId,
+            state: mergedState as any,
+            last_question_key: ai.next_action === "ASK_MISSING" ? missingConversation.join(",") : null,
+        });
+
+        // ✅ PERSIST STATE MOVED TO END
+
+        return {
+            reply: finalReply,
+            action: ai.next_action
+        };
     }
-
-    // --- FINAL SAVE (Single Source of Truth) ---
-    console.log("[StateToSave]", JSON.stringify(mergedState));
-
-    await supabase.from("booking_state").upsert({
-        conversation_id: conversationId,
-        state: mergedState as any,
-        last_question_key: ai.next_action === "ASK_MISSING" ? missingConversation.join(",") : null,
-    });
-
-    // ✅ PERSIST STATE MOVED TO END
-
-    return {
-        reply: finalReply,
-        action: ai.next_action
-    };
-}
