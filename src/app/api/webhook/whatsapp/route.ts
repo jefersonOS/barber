@@ -47,11 +47,14 @@ export async function POST(request: Request) {
                     .limit(1)
                     .maybeSingle()
 
-                if (lastAiLog?.message_content?.trim() === content.trim() && lastAiLog.timestamp) {
-                    const lastTs = new Date(lastAiLog.timestamp).getTime()
-                    const nowTs = Date.now()
-                    if (nowTs - lastTs < 60_000) {
-                        return NextResponse.json({ status: 'ignored_echo' })
+                if (lastAiLog?.message_content?.trim() === content.trim()) {
+                    const lastTsRaw = lastAiLog.timestamp
+                    if (lastTsRaw) {
+                        const lastTs = new Date(lastTsRaw).getTime()
+                        const nowTs = Date.now()
+                        if (nowTs - lastTs < 60_000) {
+                            return NextResponse.json({ status: 'ignored_echo' })
+                        }
                     }
                 }
 
