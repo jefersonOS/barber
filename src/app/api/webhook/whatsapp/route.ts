@@ -47,7 +47,7 @@ export async function POST(request: Request) {
                     .limit(1)
                     .maybeSingle()
 
-                if (lastAiLog?.message_content?.trim() === content.trim()) {
+                if (lastAiLog?.message_content?.trim() === content.trim() && lastAiLog.timestamp) {
                     const lastTs = new Date(lastAiLog.timestamp).getTime()
                     const nowTs = Date.now()
                     if (nowTs - lastTs < 60_000) {
