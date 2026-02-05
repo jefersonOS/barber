@@ -37,6 +37,24 @@ export async function POST(request: Request) {
                 .single()
 
             if (org) {
+                const { data: lastAiLog } = await supabase
+                    .from('conversation_logs')
+                    .select('message_content, timestamp')
+                    .eq('organization_id', org.id)
+                    .eq('client_phone', remoteJid)
+                    .eq('sender', 'ai')
+                    .order('timestamp', { ascending: false })
+                    .limit(1)
+                    .maybeSingle()
+
+                if (lastAiLog?.message_content?.trim() === content.trim()) {
+                    const lastTs = new Date(lastAiLog.timestamp).getTime()
+                    const nowTs = Date.now()
+                    if (nowTs - lastTs < 60_000) {
+                        return NextResponse.json({ status: 'ignored_echo' })
+                    }
+                }
+
                 // Log User Message
                 await supabase.from('conversation_logs').insert({
                     organization_id: org.id,

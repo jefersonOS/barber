@@ -113,7 +113,29 @@ export async function POST(req: Request) {
             return NextResponse.json({ ok: false, error: "Failed to create conversation" }, { status: 500 });
         }
 
-        // 4. Idempotency Check (Insert Message)
+        // 4. Anti-echo guard (avoid loop if outbound messages return as inbound)
+        const { data: lastAiLog } = await supabase
+            .from("conversation_logs")
+            .select("message_content, timestamp")
+            .eq("organization_id", org.id)
+            .eq("client_phone", phone)
+            .eq("sender", "ai")
+            .order("timestamp", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (lastAiLog?.message_content?.trim() === body.trim()) {
+            const lastTs = new Date(lastAiLog.timestamp).getTime();
+            const nowTs = Date.now();
+            const withinWindow = nowTs - lastTs < 60_000; // 60s
+
+            if (withinWindow) {
+                console.log("[Webhook] Ignoring echo of last AI message.");
+                return NextResponse.json({ ok: true, ignored_echo: true });
+            }
+        }
+
+        // 5. Idempotency Check (Insert Message)
         const { error: insertError } = await supabase.from("inbound_messages").insert({
             conversation_id: convo.id,
             provider: "evolution",
@@ -130,7 +152,15 @@ export async function POST(req: Request) {
             return NextResponse.json({ ok: false, error: "DB Error" }, { status: 500 });
         }
 
-        // 5. Run Assistant Turn
+        // Log inbound message
+        await supabase.from("conversation_logs").insert({
+            organization_id: org.id,
+            client_phone: phone,
+            message_content: body,
+            sender: "user"
+        });
+
+        // 6. Run Assistant Turn
         const clientName = data.pushName || undefined;
         const result = await runAssistantTurn({
             conversationId: convo.id,
@@ -140,11 +170,18 @@ export async function POST(req: Request) {
             clientName
         });
 
-        // 6. Send Reply
+        // 7. Send Reply
         console.log(`[Webhook] Assistant returned reply: "${result.reply?.substring(0, 50)}..."`);
         if (result.reply && result.reply.trim()) {
             const evo = new EvolutionClient();
             await evo.sendText(instanceId, phone, result.reply);
+
+            await supabase.from("conversation_logs").insert({
+                organization_id: org.id,
+                client_phone: phone,
+                message_content: result.reply,
+                sender: "ai"
+            });
         }
 
         return NextResponse.json({ ok: true });
