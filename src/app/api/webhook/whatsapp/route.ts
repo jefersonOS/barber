@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { runAssistantTurn } from '@/lib/assistant/runAssistantTurn'
+import { EvolutionClient } from '@/lib/evolution/client'
 
 export async function POST(request: Request) {
     try {
@@ -23,7 +25,8 @@ export async function POST(request: Request) {
 
             const remoteJid = key.remoteJid
             const content = messageData.message?.conversation || messageData.message?.extendedTextMessage?.text
-            const instanceId = body.instance || body.sender; // Check both just in case
+            const instanceId = body.instance || body.sender // Check both just in case
+            const clientName = messageData.pushName || undefined
 
             if (!content) return NextResponse.json({ status: 'no-content' })
             if (!remoteJid) return NextResponse.json({ status: 'no-sender' })
@@ -37,6 +40,19 @@ export async function POST(request: Request) {
                 .single()
 
             if (org) {
+                const { data: convo } = await supabase
+                    .from('conversations')
+                    .upsert({
+                        phone: remoteJid,
+                        organization_id: org.id
+                    }, { onConflict: 'phone' })
+                    .select('id')
+                    .single()
+
+                if (!convo) {
+                    return NextResponse.json({ status: 'conversation_error' }, { status: 500 })
+                }
+
                 const { data: lastAiLog } = await supabase
                     .from('conversation_logs')
                     .select('message_content, timestamp')
@@ -58,6 +74,20 @@ export async function POST(request: Request) {
                     }
                 }
 
+                const { error: insertError } = await supabase.from('inbound_messages').insert({
+                    conversation_id: convo.id,
+                    provider: 'whatsapp',
+                    provider_message_id: key.id,
+                    body: content,
+                })
+
+                if (insertError) {
+                    if (insertError.code === '23505') {
+                        return NextResponse.json({ status: 'duplicated' })
+                    }
+                    return NextResponse.json({ status: 'db_error' }, { status: 500 })
+                }
+
                 // Log User Message
                 await supabase.from('conversation_logs').insert({
                     organization_id: org.id,
@@ -66,25 +96,28 @@ export async function POST(request: Request) {
                     sender: 'user'
                 })
 
-                // Process AI Response
-                const { processAIResponse } = await import('@/lib/ai/agent')
-                const aiResponseText = await processAIResponse(org.id, remoteJid, content)
+                const result = await runAssistantTurn({
+                    conversationId: convo.id,
+                    incomingText: content,
+                    organizationId: org.id,
+                    clientPhone: remoteJid,
+                    clientName
+                })
 
-                if (aiResponseText) {
+                if (result.reply && result.reply.trim()) {
                     // Log AI Message
                     await supabase.from('conversation_logs').insert({
                         organization_id: org.id,
                         client_phone: remoteJid,
-                        message_content: aiResponseText,
+                        message_content: result.reply,
                         sender: 'ai'
                     })
 
                     // Send via Evolution API
-                    const { EvolutionClient } = await import('@/lib/evolution/client')
                     const evolution = new EvolutionClient()
                     const targetInstance = instanceId || org.whatsapp_instance_id
                     if (targetInstance) {
-                        await evolution.sendText(targetInstance, remoteJid, aiResponseText)
+                        await evolution.sendText(targetInstance, remoteJid, result.reply)
                     }
                 }
 
