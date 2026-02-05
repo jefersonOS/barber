@@ -212,6 +212,17 @@ ${activeServs?.map(s => `- ${s.name} (R$${s.price})`).join('\n') || '- N/A'}
         preAIState.time = undefined;
         preAIState.last_offer = undefined;
         (preAIState as any).last_question_key = undefined;
+
+        await supabase.from("booking_state").upsert({
+            conversation_id: conversationId,
+            state: preAIState as any,
+            last_question_key: null,
+        });
+
+        return {
+            reply: `Oi! 😊 Me diz como posso ajudar hoje? Você quer agendar algum serviço?`,
+            action: "ASK_MISSING",
+        };
     }
 
     // --- CORRECTION LOGIC (User changed mind) ---
