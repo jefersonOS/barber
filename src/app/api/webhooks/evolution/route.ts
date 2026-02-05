@@ -124,14 +124,17 @@ export async function POST(req: Request) {
             .limit(1)
             .maybeSingle();
 
-        if (lastAiLog?.message_content?.trim() === body.trim()) {
-            const lastTs = new Date(lastAiLog.timestamp).getTime();
-            const nowTs = Date.now();
-            const withinWindow = nowTs - lastTs < 60_000; // 60s
+        if (lastAiLog && lastAiLog.message_content?.trim() === body.trim()) {
+            const lastTsRaw = lastAiLog.timestamp;
+            if (lastTsRaw) {
+                const lastTs = new Date(lastTsRaw).getTime();
+                const nowTs = Date.now();
+                const withinWindow = nowTs - lastTs < 60_000; // 60s
 
-            if (withinWindow) {
-                console.log("[Webhook] Ignoring echo of last AI message.");
-                return NextResponse.json({ ok: true, ignored_echo: true });
+                if (withinWindow) {
+                    console.log("[Webhook] Ignoring echo of last AI message.");
+                    return NextResponse.json({ ok: true, ignored_echo: true });
+                }
             }
         }
 
